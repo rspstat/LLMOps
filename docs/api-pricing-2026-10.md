@@ -9,7 +9,7 @@
 - **평가 1회 상한**: 이 레포의 평가 데이터셋 80문항을 모델 하나가 한 번 처리할 때의 비용 상한(출력은 최대 64토큰으로 가정, 입력 토큰은 글자수÷4 추정이라 한국어는 더 클 수 있음).
 - **OpenAI 호환**: 현재 어댑터(`providers/openai_compat.py`)로 바로 쓸 수 있는지. ✗는 전용 어댑터를 새로 만들어야 한다는 뜻입니다.
 - **추론 모델**: 숨은 추론에 토큰을 쓰는 모델은 평가의 `max_tokens=64` 안에서 답이 비어 **오답으로 채점**됩니다(수집 중 빈 응답 경고가 뜹니다). "✓ 비추론"은 알려진 사실, "미확인"은 공식 가격 페이지가 알려 주지 않아 확인하지 못했다는 뜻입니다.
-- **확인 수준**: OpenAI·Google·DeepSeek는 공식 페이지에서 2026-10-13에 직접 읽은 값, Anthropic은 Claude API 레퍼런스(2026-10-06 캐시), Jev는 회사 발표값(제3자 문서 인용)입니다.
+- **확인 수준**: OpenAI·Google·DeepSeek·Alibaba(Qwen)는 공식 페이지에서 2026-10-13에 직접 읽은 값, Anthropic은 Claude API 레퍼런스(2026-10-06 캐시), Jev는 회사 발표값(제3자 문서 인용)입니다.
 
 ## 1. 소형(small) 후보
 
@@ -18,6 +18,9 @@
 | **gpt-4.1-nano** | 0.10 / 0.40 | $0.170 | $0.0022 | ✓ | ✓ 비추론 | ★★★★★ | 지금 어댑터 그대로 쓰고 `max_tokens`도 호환. 가장 안전한 시작점 |
 | gemini-2.5-flash-lite | 0.10 / 0.40 | $0.170 | $0.0022 (무료 구간 가능) | ✓ (beta) | 미확인 | ★★★★☆ | 무료 구간이 있어 $0로 가능. 호환 계층이 beta이고 thinking 동작을 확인해야 함 |
 | gpt-4o-mini | 0.15 / 0.60 | $0.255 | $0.0033 | ✓ | ✓ 비추론 | ★★★★☆ | 검증된 범용 소형. nano보다 품질 여유 |
+| **qwen3.7-flash** (Alibaba) | 0.03 / 0.13 (≤32K 구간) | $0.054 | $0.0007 | ✓ | 미확인 | ★★★★☆ | 표에서 가장 저렴하고 무료 100만 토큰(90일). 단 추론 기본값과 끄는 법을 확인하지 못했고, 키가 리전에 묶이며 엔드포인트가 워크스페이스 ID 기반 |
+| qwen3.8-flash (Alibaba) | 0.15 / 0.47 | $0.216 | $0.0026 | ✓ | 미확인 | ★★★☆☆ | 더 새롭지만 3.7-flash보다 비쌈 |
+| qwen-flash (Alibaba, 구버전) | 0.05 / 0.40 | $0.145 | $0.0021 | ✓ | 미확인 | ★★★☆☆ | 3.7-flash가 더 쌈 |
 | gpt-6-luna | 0.10 / 0.50 | $0.200 | $0.0027 | ✓ | 미확인 | ★★★☆☆ | 최신 최저가권. 추론 여부를 확인한 뒤 |
 | deepseek-flash (비피크) | 0.15 / 0.60 | $0.255 | $0.0033 | ✓ | 미확인 | ★★★☆☆ | 가격 대비 성능이 좋을 가능성. 피크 시간 2배, 데이터가 국외 서비스로 감, "소형" 역할엔 과성능일 수 있음 |
 | claude-haiku-5-5 | 0.10 / 0.50 | $0.200 | $0.0027 | ✗ | 적응형 추론 기본 ON | ★★☆☆☆ | 가격은 좋지만 전용 어댑터가 없어 추가 개발 필요(현재 범위 밖) |
@@ -30,6 +33,9 @@
 |---|---|---|---|---|---|---|---|
 | **gpt-4.1** | 2.00 / 8.00 | $3.400 | $0.0439 | ✓ | ✓ 비추론 | ★★★★★ | 지금 파이프라인에 바로 맞고 소형(nano)과 격차가 분명해 라우팅 비교에 적합 |
 | gpt-6.1-sol | 2.00 / 10.00 | $4.000 | $0.0541 | ✓ | 미확인 | ★★★★☆ | 같은 가격대의 최신. 추론 여부 확인 후 gpt-4.1과 비교용으로 |
+| **qwen-max** (Alibaba) | 1.60 / 6.40 | $2.720 | $0.0351 | ✓ | ✓ 비추론 전용(공식 표기) | ★★★★☆ | gpt-4.1보다 20% 저렴하고 추론 전용이 아니라 빈 답 위험이 없음. 구형 계열이라 최신 모델 대비 성능은 직접 측정해야 함 |
+| qwen3.8-max (Alibaba) | 2.00 / 6.00 | $2.800 | $0.0336 | ✓ | 추론·비추론 겸용, 기본값 미확인 | ★★★☆☆ | 최신 플래그십. 기본이 추론이면 64토큰 한도에서 빈 답 위험 |
+| qwen3.7-plus (Alibaba) | 0.40 / 1.60 (한시 20% 할인) | $0.680 | $0.0088 | ✓ | 겸용, 미확인 | ★★★☆☆ | 중간급. 소형과 상용 사이 격차가 작아질 수 있음 |
 | deepseek-v4-pro (비피크) | 0.66 / 1.98 | $0.924 | $0.0111 | ✓ | 미확인 | ★★★☆☆ | 매우 저렴. 피크 2배, 국외 서비스 고려 |
 | gpt-5.6-terra | 2.00 / 12.00 | $4.600 | $0.0644 | ✓ | 미확인 | ★★★☆☆ | 6.1-sol 대비 장점이 불분명 |
 | gemini-2.5-pro | 1.25 / 10.00 | $3.625 | $0.0530 | ✓ (beta) | 추론 항상 ON | ★★☆☆☆ | 추론을 끌 수 없어 64토큰 한도에서 빈 답 위험 |
@@ -51,6 +57,7 @@
 | **A. 권장** | gpt-4.1-nano + gpt-4.1 + Jev | ≈ $0.047 | OpenAI 1개 + Jev 1개 | 모두 현재 어댑터로 즉시 동작. 두 모델 모두 비추론이라 빈 답 문제 없음 |
 | B. 소형 무료 | gemini-2.5-flash-lite(무료 구간) + gpt-4.1 + Jev | ≈ $0.045 (소형이 무료 구간일 때. 유료면 A와 같은 ≈ $0.047) | Google + OpenAI + Jev | 소형이 $0. 호환 계층 beta와 thinking 동작 확인 필요 |
 | C. 저가 대안 | deepseek-flash + deepseek-v4-pro + Jev | ≈ $0.015 | DeepSeek 1개 + Jev | 가장 저렴. 추론 여부 미확인, 피크 시간 2배 |
+| D. Qwen 한 곳 | qwen3.7-flash + qwen-max + Jev | ≈ $0.036 | Alibaba 1개 + Jev | 한 키로 소형·상용 호출, 소형이 거의 공짜(무료 100만 토큰 안). 상용(qwen-max)은 비추론 전용이라 안전하나 소형(3.7-flash)의 추론 기본값은 확인 필요 |
 
 조합 A는 OpenAI 키 하나로 소형과 상용을 모두 호출할 수 있습니다(`SLM_BASE_URL`과 `FRONTIER_BASE_URL`이 같은 `https://api.openai.com/v1`).
 
@@ -63,6 +70,8 @@
 - **제외한 것**: 장문 컨텍스트 할증, 캐시·배치 할인, 세금·환율, 무료 구간의 속도 제한(공식 가격 페이지에 한도가 없음).
 - **계정 접근**: 계정 등급이나 지역에 따라 일부 모델을 쓰지 못할 수 있습니다. `scripts/smoke_live.py`로 1회 호출해 확인하세요.
 - **추론 여부 "미확인"**: OpenAI 공식 가격 페이지는 모델의 추론 여부를 표시하지 않습니다. 추측으로 채우지 않았고, 수집 중 "빈 응답" 경고가 뜨면 추론 모델이라는 신호입니다.
+- **Qwen(Alibaba Cloud Model Studio)**: 가격은 국제(싱가포르) 정가이며 같은 페이지가 무료 100만 토큰(90일)을 안내합니다. OpenAI 호환 모드가 있고 키는 `Authorization: Bearer`로 보내지만, **API 키가 만들어진 리전에 묶이고** 엔드포인트가 `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1` 형태(워크스페이스 ID 필요)입니다. 겸용(추론·비추론) 모델에서 추론을 끄는 방법은 읽은 문서에 없어서 확인하지 못했고, 현재 어댑터는 `extra_body`를 보내지 못합니다. 그래서 추론 전용이 아님이 명시된 `qwen-max`가 상용 후보로 안전합니다. `temperature=0`은 허용 범위([0, 2))이지만 문서가 권장하지 않는다고 적고 있습니다.
+- **Qwen 품질**: 한국어 소형 모델 직접 비교 자료는 찾지 못했습니다. Qwen 모델 카드는 201개 언어 지원을 주장하고(제작사 주장), 한국어 퍼즐 벤치마크(NOLLI)에서는 Qwen 계열 안에서 모델이 클수록 정확도가 올랐다는 결과만 확인했습니다. "Qwen이 더 낫다/못하다"를 이 문서로 판단할 수 없고, 이 레포의 평가로 직접 재야 합니다.
 - **Claude(Anthropic)**: 가격은 좋지만 OpenAI 호환 엔드포인트가 아니라서 전용 어댑터가 필요합니다. 로드맵상 이후 단계 후보입니다.
 - **확인하지 못한 제공사**: Groq는 공식 가격 페이지에서 단가를 읽지 못했고, Mistral·Together 등은 조사하지 않았습니다.
 - **무료 구간 데이터 정책**: 무료 구간은 입력이 제공사의 서비스 개선에 쓰일 수 있는 약관이 흔합니다(이 문서는 약관을 확인하지 않았습니다). 이 레포의 평가 데이터셋은 공개 가능한 합성 문항이라 문제가 없지만, 개인정보가 든 데이터는 넣지 마세요.
@@ -72,5 +81,7 @@
 - OpenAI: [developers.openai.com/api/docs/pricing](https://developers.openai.com/api/docs/pricing) (표준 요금, 2026-10-13 확인)
 - Google Gemini: [ai.google.dev/gemini-api/docs/pricing](https://ai.google.dev/gemini-api/docs/pricing), OpenAI 호환 엔드포인트: [ai.google.dev/gemini-api/docs/openai](https://ai.google.dev/gemini-api/docs/openai)
 - DeepSeek: [api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing) (OpenAI 형식 base URL `https://api.deepseek.com`)
+- Alibaba Cloud Qwen: [model pricing](https://www.alibabacloud.com/help/en/model-studio/model-pricing) (페이지 표기 갱신일 2026-10-12, 싱가포르 정가), [OpenAI 호환 모드](https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope)
+- Qwen 모델 카드: [Qwen3.5-4B (Hugging Face)](https://huggingface.co/Qwen/Qwen3.5-4B), 한국어 퍼즐 벤치마크: [NOLLI (arXiv)](https://arxiv.org/pdf/2608.04397)
 - Anthropic: Claude API 레퍼런스의 모델·가격 표(2026-10-06 캐시)
 - Jev 단가: 회사 발표를 인용한 제3자 문서, 예: [Apidog](https://apidog.com/blog/how-to-access-jev/)
