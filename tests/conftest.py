@@ -12,5 +12,10 @@ def settings() -> Settings:
 
 
 @pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
+
+
+@pytest.fixture
 def auth_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {TEST_API_KEY}"}
