@@ -51,8 +51,8 @@ flowchart LR
 
 ## 로드맵
 
-- [ ] **0. 기반**: 레포 구조, 환경 변수, 게이트웨이 골격
-- [ ] **1. 한 줄 관통**: 입력 가드 → 라우터 → LLM 호출 → trace 저장
+- [x] **0. 기반**: 레포 구조, 환경 변수, 게이트웨이 골격
+- [x] **1. 한 줄 관통**: 입력 가드 → 라우터 → LLM 호출 → trace 저장 (mock provider 기준으로 관통, 실제 모델 호출은 스모크 스크립트로 별도 확인 예정)
 - [ ] **2. 라우팅 엔진 v1**: 규칙 + Jev + 모델 2종, 신뢰도 기반 승격
 - [ ] **3. 평가 v1**: 데이터셋, judge, 비용·지연·정확도 리포트
 - [ ] **4. 가드 고도화**: 인젝션·PII 탐지, 공격 프롬프트 자동 생성, 방어율 측정
@@ -62,11 +62,33 @@ flowchart LR
 
 ## 시작하기
 
-> 구현 전 단계입니다. 실행 방법은 게이트웨이 골격이 만들어지면 여기에 추가합니다.
+필요한 것: [uv](https://docs.astral.sh/uv/) (Python 3.12는 uv가 자동으로 받습니다).
 
 ```bash
-cp .env.example .env   # 값을 채우되 .env 는 절대 커밋하지 마세요
+uv sync                # 의존성 설치 (.venv 생성)
+cp .env.example .env   # PowerShell: Copy-Item .env.example .env
+                       # GATEWAY_API_KEY 에 임의의 긴 문자열을 채우세요. .env 는 절대 커밋하지 마세요.
+uv run uvicorn gateway.app:create_app --factory --port 8000
 ```
+
+기본 설정은 오프라인 mock provider라서 API 키 없이 바로 시연할 수 있습니다.
+
+```bash
+curl http://localhost:8000/v1/chat/completions \
+  -H "Authorization: Bearer $GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"안녕하세요"}]}'
+```
+
+- 응답 헤더의 `X-Request-ID`가 trace의 키입니다. 기본 저장소는 `data/traces.sqlite3`(SQLite, 커밋되지 않음)이며 단계별(`guard` → `router` → `provider`) 판정·토큰·비용·지연이 기록됩니다.
+- 입력 가드가 막으면 400, 라우팅된 모델이 실패하면 오프라인 fallback으로 응답합니다(trace에 기록).
+- 실제 모델 연결은 `.env`의 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`로 켭니다. 한 번만 실제 호출을 확인하는 스모크 스크립트는 `scripts/smoke_live.py`(기본 비활성)입니다.
+
+```bash
+uv run pytest                                        # 테스트 (네트워크 없음)
+uv run ruff check . && uv run ruff format --check .  # 린트
+```
+
+현재 구현 범위(로드맵 0~1단계): 규칙 기반 입력 가드 · 규칙 라우터 · 비스트리밍 `/v1/chat/completions` · SQLite trace. 출력 가드, Jev 판정, 스트리밍은 이후 단계입니다.
 
 ## AI 활용 기록
 

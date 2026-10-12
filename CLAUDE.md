@@ -33,7 +33,23 @@ FastAPI 기반 **LLM 게이트웨이**: 입력 가드 → 라우팅 엔진 → �
 
 ## 명령어
 
-> 아직 없음. 실행/테스트/린트 명령이 생기면 **즉시 이 섹션을 갱신**한다. 존재하지 않는 명령을 추측해서 적지 않는다.
+> 새 명령이 생기면 **즉시 이 섹션을 갱신**한다. 실행해 본 적 없는 명령을 추측해서 적지 않는다.
+
+Python은 uv로 관리한다 (`.python-version` = 3.12, `uv.lock` 커밋).
+
+```bash
+uv sync                                                   # 환경 생성/동기화
+uv run pytest                                             # 테스트 (전부 mock, 네트워크 없음)
+uv run ruff check . && uv run ruff format --check .       # 린트 + 포맷 검사
+uv run uvicorn gateway.app:create_app --factory --port 8000   # 게이트웨이 실행 (.env 필요)
+
+# 실제 모델 1회 호출 — 비용 발생. 내가 요청할 때만 실행한다.
+ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 frontier
+```
+
+- Windows PowerShell에서는 `$env:ALLOW_LIVE_CALLS = "1"; uv run python -m scripts.smoke_live --target slm`.
+- provider 기본값은 mock이라 `.env`에 키가 있어도 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`를 바꾸기 전에는 외부 호출이 없다.
+- 테스트는 `Settings(_env_file=None)`로 `.env`를 읽지 않고, trace DB는 `tmp_path`에 만든다.
 
 ## 작업 방식
 
