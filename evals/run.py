@@ -20,7 +20,10 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+from dotenv import dotenv_values
+
 from evals.cache import CacheMeta, EvalCache
+from evals.check import diagnose
 from evals.collect import JudgeTarget, ModelTarget, collect, estimate, pending_items
 from evals.report import build_report_data, write_report
 from evals.schema import EvalItem, file_hash, load_items
@@ -112,6 +115,24 @@ def select_items(items: Sequence[EvalItem], limit: int | None) -> list[EvalItem]
     if limit is None:
         return list(items)
     return sorted(items, key=lambda i: hashlib.sha256(i.id.encode()).hexdigest())[:limit]
+
+
+def _cmd_check(args: argparse.Namespace, settings: Settings | None) -> int:
+    """Explain what .env will do. Prints names, on/off states and hosts, never key values."""
+    env_path = Path(args.env_file)
+    defined = dotenv_values(env_path) if env_path.exists() else {}
+    settings = settings or Settings(_env_file=env_path)
+    lines, problems = diagnose(settings, defined, env_path.exists())
+    print(f"{env_path}: {len(defined)}개 변수 정의됨" if env_path.exists() else f"{env_path}: 없음")
+    for line in lines:
+        print(line)
+    if not problems:
+        print("\n문제 없음: 설정이 서로 모순되지 않습니다.")
+        return EXIT_OK
+    print(f"\n고쳐야 할 것 {len(problems)}개:")
+    for number, problem in enumerate(problems, start=1):
+        print(f"  {number}. {problem}")
+    return EXIT_ERROR
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
@@ -295,6 +316,9 @@ def main(
 
     common(sub.add_parser("validate", help="check the dataset file"))
 
+    check_p = sub.add_parser("check", help="explain what .env will do (never prints key values)")
+    check_p.add_argument("--env-file", default=".env")
+
     collect_p = sub.add_parser("collect", help="call the judge and both models once per item")
     named(collect_p)
     collect_p.add_argument("--limit", type=int, help="use a deterministic sample of N items")
@@ -317,6 +341,8 @@ def main(
     try:
         if args.command == "validate":
             return _cmd_validate(args)
+        if args.command == "check":
+            return _cmd_check(args, settings)
         if args.command == "collect":
             return _cmd_collect(args, environ, settings or Settings(), print)
         return _cmd_report(args)

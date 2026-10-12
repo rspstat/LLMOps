@@ -23,6 +23,27 @@ def test_secrets_are_masked_in_repr():
     assert "top-secret" not in repr(settings) and "sk-secret" not in repr(settings)
 
 
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"small_provider": "slm", "slm_api_key": "slm-secret-xyz"},  # no model
+        {"frontier_provider": "openai", "openai_api_key": "openai-secret-xyz"},  # no model
+        {
+            "judge_provider": "jev",
+            "jev_api_key": "",
+            "openai_api_key": "other-secret-xyz",
+        },  # no key
+        {"router_promote_threshold": 5, "jev_api_key": "jev-secret-xyz"},  # out of range
+    ],
+)
+def test_a_validation_error_never_prints_the_raw_input(kwargs):
+    # pydantic's default error text embeds the whole input dict, API keys included.
+    with pytest.raises(ValidationError) as info:
+        Settings(_env_file=None, **kwargs)
+    text = str(info.value)
+    assert "validation error" in text and "secret-xyz" not in text
+
+
 def test_slm_api_key_is_optional_and_masked():
     assert Settings(_env_file=None).slm_api_key.get_secret_value() == ""
     hosted = Settings(_env_file=None, small_provider="slm", slm_model="m", slm_api_key="slm-secret")

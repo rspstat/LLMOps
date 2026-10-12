@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     sweeps them.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # hide_input_in_errors: a validation error otherwise prints the raw input, API keys included,
+    # into terminals, tracebacks and logs.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     # Clients must send this as a Bearer token. Empty means every protected call is rejected.
     gateway_api_key: SecretStr = SecretStr("")
