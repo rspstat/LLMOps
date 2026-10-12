@@ -1,0 +1,58 @@
+# ── Secrets (절대 커밋 금지) ─────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ── Python ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# ── Jupyter ────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── 데이터 / 모델 / 실험 산출물 (용량 큼) ─────────────
+data/raw/
+data/processed/
+checkpoints/
+outputs/
+runs/
+wandb/
+mlruns/
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.ckpt
+*.onnx
+.cache/
+.huggingface/
+
+# ── 로컬 DB ───────────────────────────────────────
+*.sqlite3
+*.db
+
+# ── Node (프런트엔드를 쓸 경우) ─────────────────────
+node_modules/
+
+# ── Docker ────────────────────────────────────────
+docker-compose.override.yml
+
+# ── IDE / OS ──────────────────────────────────────
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
