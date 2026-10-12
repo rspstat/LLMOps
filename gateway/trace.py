@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 import sqlite3
 from collections.abc import Sequence
 from contextlib import closing
@@ -8,6 +10,8 @@ from pathlib import Path
 from typing import Any, Protocol
 
 SQLITE_URL_PREFIX = "sqlite:///"
+
+logger = logging.getLogger("llmops.trace")
 
 
 def _now_iso() -> str:
@@ -146,6 +150,15 @@ class SqliteTraceStore:
             )
             for r in rows
         ]
+
+
+async def flush_trace(store: TraceStore, recorder: TraceRecorder) -> None:
+    """Persist a request's events off the event loop. A trace failure must not fail the request."""
+    try:
+        # shield: if the client disconnects mid-flush, the write still completes in its thread.
+        await asyncio.shield(asyncio.to_thread(store.write_many, recorder.events))
+    except Exception:
+        logger.exception("failed to write trace for request %s", recorder.request_id)
 
 
 def create_trace_store(database_url: str) -> TraceStore:

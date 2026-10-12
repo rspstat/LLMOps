@@ -76,8 +76,10 @@ def test_unauthorized_response_still_carries_request_id(client):
     assert response.headers["X-Request-ID"]
 
 
-def test_empty_configured_key_rejects_everything():
-    app = create_app(Settings(_env_file=None, gateway_api_key=""))
+def test_empty_configured_key_rejects_everything(settings):
+    app = create_app(
+        Settings(_env_file=None, gateway_api_key="", database_url=settings.database_url)
+    )
 
     @app.get("/protected", dependencies=[Depends(require_api_key)])
     async def protected() -> None: ...
