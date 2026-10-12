@@ -10,9 +10,17 @@ _ERROR_BODY_LIMIT = 200
 class OpenAICompatProvider:
     """Adapter for any server speaking the OpenAI `/chat/completions` protocol.
 
-    Covers vLLM / local SLM servers and OpenAI itself. Anthropic and Google native APIs are not
-    OpenAI-compatible and need their own adapters.
+    Covers vLLM / Ollama / local SLM servers and OpenAI itself. Anthropic and Google native APIs
+    are not OpenAI-compatible and need their own adapters.
+
+    Some newer hosted models reject `max_tokens` (they want `max_completion_tokens`) or any
+    `temperature` other than their default. Such a request fails with a 400 that names the
+    parameter and is not billed, so on exactly that signal the request is re-sent once per
+    problem with the other form, and the choice is remembered for later calls. Every other error
+    (401, 429, 5xx, a 400 that names neither parameter) is raised immediately and never re-sent.
     """
+
+    _MAX_ADAPTATIONS = 2
 
     def __init__(
         self,
@@ -30,24 +38,50 @@ class OpenAICompatProvider:
         self._api_key = api_key
         self._timeout_s = timeout_s
         self._transport = transport
+        self._token_param = "max_tokens"
+        self._send_temperature = True
 
-    async def complete(self, request: ProviderRequest) -> ProviderResponse:
+    def _payload(self, request: ProviderRequest) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": [{"role": m.role, "content": m.content} for m in request.messages],
-            "max_tokens": request.max_tokens,
+            self._token_param: request.max_tokens,
         }
-        if request.temperature is not None:
+        if request.temperature is not None and self._send_temperature:
             payload["temperature"] = request.temperature
+        return payload
 
-        headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
+    def _adapt_to(self, error_body: str, request: ProviderRequest) -> bool:
+        """Switch to what the server asked for. False if the error names nothing we can change."""
+        changed = False
+        if self._token_param == "max_tokens" and "max_completion_tokens" in error_body:
+            self._token_param = "max_completion_tokens"
+            changed = True
+        if (
+            self._send_temperature
+            and request.temperature is not None
+            and "temperature" in error_body
+        ):
+            self._send_temperature = False
+            changed = True
+        return changed
+
+    async def _post(self, payload: dict[str, Any], headers: dict[str, str]) -> httpx.Response:
         try:
             async with httpx.AsyncClient(
                 timeout=self._timeout_s, transport=self._transport
             ) as client:
-                response = await client.post(self._url, json=payload, headers=headers)
+                return await client.post(self._url, json=payload, headers=headers)
         except httpx.HTTPError as exc:
             raise ProviderError(f"{self.name}: request failed ({type(exc).__name__})") from exc
+
+    async def complete(self, request: ProviderRequest) -> ProviderResponse:
+        headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
+        response = await self._post(self._payload(request), headers)
+        for _ in range(self._MAX_ADAPTATIONS):
+            if response.status_code != 400 or not self._adapt_to(response.text, request):
+                break
+            response = await self._post(self._payload(request), headers)
 
         if response.status_code >= 400:
             body = response.text[:_ERROR_BODY_LIMIT]
@@ -59,6 +93,10 @@ class OpenAICompatProvider:
             data = response.json()
             choice = data["choices"][0]
             content = choice["message"]["content"]
+            if content is None and choice.get("finish_reason") == "length":
+                # A reasoning model can spend the whole token budget thinking and return nothing.
+                # That is an empty answer (visible as such), not a malformed response.
+                content = ""
             if not isinstance(content, str):
                 raise TypeError("content is not a string")
         except (ValueError, KeyError, IndexError, TypeError) as exc:

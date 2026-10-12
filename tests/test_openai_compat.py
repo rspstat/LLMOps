@@ -113,3 +113,111 @@ async def test_timeout_raises_provider_error():
 async def test_malformed_payload_raises_provider_error(response):
     with pytest.raises(ProviderError, match="malformed"):
         await make_provider(lambda r: response).complete(REQUEST)
+
+
+MAX_TOKENS_REJECTED = (
+    "Unsupported parameter: 'max_tokens' is not supported with this model. "
+    "Use 'max_completion_tokens' instead."
+)
+TEMPERATURE_REJECTED = (
+    "Unsupported value: 'temperature' does not support 0.2 with this model. "
+    "Only the default (1) value is supported."
+)
+
+
+def rejecting(messages: list[str], log: list[dict]):
+    """Answer the first requests with the given 400 messages, then succeed; log every body."""
+    queue = list(messages)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        log.append(json.loads(request.content))
+        if queue:
+            return httpx.Response(400, json={"error": {"message": queue.pop(0)}})
+        return httpx.Response(200, json=OK_BODY)
+
+    return handler
+
+
+@pytest.mark.anyio
+async def test_resends_with_max_completion_tokens_when_the_server_asks_and_remembers_it():
+    bodies: list[dict] = []
+    provider = make_provider(rejecting([MAX_TOKENS_REJECTED], bodies))
+
+    assert (await provider.complete(REQUEST)).content == "hello"
+    assert "max_tokens" in bodies[0] and "max_completion_tokens" not in bodies[0]
+    assert bodies[1]["max_completion_tokens"] == 16 and "max_tokens" not in bodies[1]
+
+    await provider.complete(REQUEST)
+    assert len(bodies) == 3 and "max_completion_tokens" in bodies[2]  # no further probing
+
+
+@pytest.mark.anyio
+async def test_resends_without_temperature_when_the_server_rejects_it_and_remembers_it():
+    bodies: list[dict] = []
+    provider = make_provider(rejecting([TEMPERATURE_REJECTED], bodies))
+
+    await provider.complete(REQUEST)
+    assert bodies[0]["temperature"] == 0.2 and "temperature" not in bodies[1]
+    assert bodies[1]["max_tokens"] == 16  # only the named parameter changed
+
+    await provider.complete(REQUEST)
+    assert len(bodies) == 3 and "temperature" not in bodies[2]
+
+
+@pytest.mark.anyio
+async def test_adapts_to_both_problems_in_turn():
+    bodies: list[dict] = []
+    provider = make_provider(rejecting([MAX_TOKENS_REJECTED, TEMPERATURE_REJECTED], bodies))
+    assert (await provider.complete(REQUEST)).content == "hello"
+    assert len(bodies) == 3
+    assert "max_completion_tokens" in bodies[2] and "temperature" not in bodies[2]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("status", "text"),
+    [
+        (400, "Invalid model name"),  # a 400 that names neither parameter
+        (401, "max_completion_tokens temperature"),  # right words, wrong status
+        (429, "max_completion_tokens temperature"),
+        (500, "max_completion_tokens temperature"),
+    ],
+)
+async def test_other_errors_are_never_resent(status, text):
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(status, text=text)
+
+    with pytest.raises(ProviderError, match=f"HTTP {status}"):
+        await make_provider(handler).complete(REQUEST)
+    assert len(calls) == 1
+
+
+@pytest.mark.anyio
+async def test_a_server_that_keeps_complaining_is_given_up_on():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(400, text=MAX_TOKENS_REJECTED)
+
+    with pytest.raises(ProviderError, match="HTTP 400"):
+        await make_provider(handler).complete(REQUEST)
+    assert len(calls) == 2  # original + one resend; the same complaint again changes nothing
+
+
+@pytest.mark.anyio
+async def test_no_temperature_is_never_added_or_asked_about():
+    bodies: list[dict] = []
+    bare = ProviderRequest(messages=(ChatMessage("user", "hi"),), max_tokens=8)
+    await make_provider(rejecting([], bodies)).complete(bare)
+    assert "temperature" not in bodies[0]
+
+
+@pytest.mark.anyio
+async def test_a_budget_spent_on_hidden_reasoning_is_an_empty_answer_not_a_malformed_one():
+    empty = {"choices": [{"message": {"content": None}, "finish_reason": "length"}], "usage": {}}
+    response = await make_provider(lambda r: httpx.Response(200, json=empty)).complete(REQUEST)
+    assert response.content == "" and response.finish_reason == "length"
