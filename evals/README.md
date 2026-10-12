@@ -31,6 +31,59 @@ ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0
 - `report`는 캐시만 읽습니다. `--taus 0.5,0.7,0.9`로 임계값을 바꿀 수 있습니다.
 - `cache/`와 `reports/`는 `.gitignore` 대상입니다. 의미 있는 결과는 `docs/`로 복사해 커밋하세요.
 
+## 실측 (실제 모델로 수집)
+
+`.env`에 아래 항목을 채웁니다. **키는 채팅이나 커밋에 넣지 말고 `.env`에만** 두세요. 단가(USD / 100만 토큰)는 각 제공사의 가격표에서 직접 확인해 넣습니다. 단가가 0이면 예산 가드가 작동하지 않아서 과금되는 모델은 단가 없이는 수집이 거부됩니다.
+
+```
+# 소형(small) 모델: 호스팅 OpenAI 호환 API의 저가 "채팅" 모델 (추론 모델은 피하세요, 아래 참고)
+SMALL_PROVIDER=slm
+SLM_BASE_URL=<엔드포인트>        # 예: https://api.openai.com/v1
+SLM_MODEL=<모델명>
+SLM_API_KEY=<키>
+SMALL_PRICE_IN_PER_MTOK=<입력 단가>
+SMALL_PRICE_OUT_PER_MTOK=<출력 단가>
+
+# 상용(frontier) 모델
+FRONTIER_PROVIDER=openai
+FRONTIER_BASE_URL=https://api.openai.com/v1
+FRONTIER_MODEL=<모델명>
+OPENAI_API_KEY=<키>
+FRONTIER_PRICE_IN_PER_MTOK=<입력 단가>
+FRONTIER_PRICE_OUT_PER_MTOK=<출력 단가>
+
+# 판정기: Jev (접근 경로마다 URL·모델명이 다릅니다)
+JUDGE_PROVIDER=jev
+JEV_API_KEY=<키>
+JEV_BASE_URL=<엔드포인트 전체 URL>
+JEV_MODEL=<모델명>
+JEV_PRICE_IN_PER_MTOK=0.042       # 회사 발표 단가. 가격표를 확인하세요
+```
+
+실행 순서 (PowerShell):
+
+```powershell
+# 1. 어댑터가 각 서비스와 실제로 맞는지 1회씩 확인 (호출 3번)
+$env:ALLOW_LIVE_CALLS = "1"
+uv run python -m scripts.smoke_live --target slm
+uv run python -m scripts.smoke_live --target frontier
+uv run python -m scripts.smoke_live --target jev --prompt "What is the capital of France?"
+
+# 2. 호출 없이 예상 호출 수와 비용 상한 확인 (단가 경고가 없어야 합니다)
+uv run python -m evals.run collect --name real --dry-run
+
+# 3. 작게 먼저 (10개, 예산 $0.10), 이상 없으면 같은 이름으로 전체를 이어서 수집 (이미 한 항목은 재사용)
+uv run python -m evals.run collect --name real --limit 10 --budget-usd 0.10
+uv run python -m evals.run collect --name real --budget-usd 0.50
+
+# 4. 리포트
+uv run python -m evals.run report --name real
+```
+
+- 소형·상용 모델은 `max_tokens=64`로 호출하므로 **숨은 추론에 토큰을 쓰는 모델은 답이 비어** 오답으로 채점됩니다. 수집 중과 리포트에 "빈 응답" 경고가 나오면 추론 기능이 없는 채팅 모델로 바꾸거나 `--max-tokens`를 올려 다시 수집하세요(모델이 바뀌면 캐시 키가 달라져 자동으로 다시 수집됩니다).
+- 일부 최신 모델은 `max_tokens`나 `temperature=0`을 거부합니다. 어댑터는 오류 본문이 해당 파라미터를 지목할 때만(과금되지 않는 400) 한 번씩 맞춰서 다시 보냅니다. 이 동작은 mock HTTP로만 검증했고 실제 API에서는 확인하지 못했습니다.
+- Jev가 아직 없으면 `JUDGE_PROVIDER=mock`으로 두고 소형·상용 수치만 먼저 수집하세요. 리포트가 "판정기가 mock"이라고 표시하고 `hybrid`·`judge_only` 행은 무효라고 알려 줍니다. 나중에 Jev를 연결하면 판정기 identity가 캐시 키에 들어 있어서 **항목 전체(판정기·소형·상용)가 다시 수집됩니다.** 구성 요소별로 따로 캐시하지는 않습니다(이번 규모에서는 몇 센트 수준이고 예산 가드가 적용됩니다).
+
 ## 구성
 
 | 파일 | 역할 |
