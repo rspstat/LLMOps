@@ -24,7 +24,7 @@ from dotenv import dotenv_values
 from pydantic import ValidationError
 
 from evals.cache import CacheMeta, EvalCache
-from evals.check import describe_load_errors, diagnose
+from evals.check import describe_load_errors, describe_raw_values, diagnose
 from evals.collect import JudgeTarget, ModelTarget, collect, estimate, pending_items
 from evals.report import build_report_data, write_report
 from evals.schema import EvalItem, file_hash, load_items
@@ -130,6 +130,9 @@ def _cmd_check(args: argparse.Namespace, settings: Settings | None) -> int:
         print(f"\n설정을 읽을 수 없습니다. 고쳐야 할 것 {len(errors)}개:")
         for number, line in enumerate(errors, start=1):
             print(f"  {number}. {line}")
+        print("\n파일에 적힌 값 (키는 채워졌는지만 표시):")
+        for line in describe_raw_values(defined):
+            print(f"  {line}")
         return EXIT_ERROR
     lines, problems = diagnose(settings, defined, env_path.exists())
     for line in lines:

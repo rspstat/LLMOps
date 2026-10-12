@@ -29,6 +29,48 @@ def _filled(value: str | None) -> bool:
 
 _NUMBER_ERRORS = {"float_parsing", "int_parsing", "float_type", "int_type"}
 
+# What can be shown from the raw file when it does not load: plain choices and model names,
+# URL hosts, price numbers, and only whether a key is filled in. Key values are never shown.
+_SHOWN_AS_IS = (
+    "SMALL_PROVIDER",
+    "FRONTIER_PROVIDER",
+    "JUDGE_PROVIDER",
+    "ROUTER_MODE",
+    "SLM_MODEL",
+    "FRONTIER_MODEL",
+    "JEV_MODEL",
+)
+_URLS = ("SLM_BASE_URL", "FRONTIER_BASE_URL", "JEV_BASE_URL")
+_KEYS = ("SLM_API_KEY", "OPENAI_API_KEY", "JEV_API_KEY", "GATEWAY_API_KEY")
+_PRICES = (
+    "SMALL_PRICE_IN_PER_MTOK",
+    "SMALL_PRICE_OUT_PER_MTOK",
+    "FRONTIER_PRICE_IN_PER_MTOK",
+    "FRONTIER_PRICE_OUT_PER_MTOK",
+    "JEV_PRICE_IN_PER_MTOK",
+    "JEV_PRICE_OUT_PER_MTOK",
+)
+
+
+def describe_raw_values(defined: Mapping[str, str | None]) -> list[str]:
+    """The non-secret settings as written in the file, for when the file cannot be loaded."""
+    lines = []
+    for name in _SHOWN_AS_IS:
+        lines.append(f"{name} = {(defined.get(name) or '').strip() or '(비어 있음)'}")
+    for name in _URLS:
+        raw = (defined.get(name) or "").strip()
+        lines.append(f"{name} = {_host(raw) if raw else '(비어 있음)'}")
+    for name in _PRICES:
+        raw = (defined.get(name) or "").strip()
+        try:
+            shown = str(float(raw)) if raw else "(비어 있음)"
+        except ValueError:
+            shown = "(숫자가 아님)"
+        lines.append(f"{name} = {shown}")
+    for name in _KEYS:
+        lines.append(f"{name} = {'채워짐' if _filled(defined.get(name)) else '(비어 있음)'}")
+    return lines
+
 
 def describe_load_errors(exc: ValidationError) -> list[str]:
     """One friendly line per bad setting, naming the .env variable. Values are never included."""

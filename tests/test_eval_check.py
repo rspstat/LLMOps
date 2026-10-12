@@ -157,6 +157,31 @@ def test_text_in_a_numeric_variable_names_the_variable_but_not_the_text(tmp_path
     assert "free-ish-xyz" not in text
 
 
+def test_when_the_file_cannot_load_the_non_secret_values_are_still_shown(tmp_path, capsys):
+    env = "\n".join(
+        [
+            "SMALL_PROVIDER=slm",  # but no SLM_MODEL: the file does not load
+            f"SLM_API_KEY={SECRETS['SLM_API_KEY']}",
+            "SLM_BASE_URL=https://small.example.test/path/v1?token=url-secret-xyz",
+            "FRONTIER_MODEL=big-model",
+            "FRONTIER_PRICE_IN_PER_MTOK=2.5",
+            "JEV_PRICE_OUT_PER_MTOK=free-ish-xyz",
+            f"OPENAI_API_KEY={SECRETS['OPENAI_API_KEY']}",
+        ]
+    )
+    code, text = check(tmp_path, capsys, env)
+    # The bad number is a field error; the cross-field "model required" rule only runs after fields
+    # pass, so it is not reported yet.
+    assert code == 1 and "JEV_PRICE_OUT_PER_MTOK: 숫자여야 합니다" in text
+    assert "SMALL_PROVIDER = slm" in text and "FRONTIER_MODEL = big-model" in text
+    assert "SLM_MODEL = (비어 있음)" in text and "FRONTIER_PRICE_IN_PER_MTOK = 2.5" in text
+    assert "JEV_PRICE_OUT_PER_MTOK = (숫자가 아님)" in text
+    assert "SLM_API_KEY = 채워짐" in text and "JEV_API_KEY = (비어 있음)" in text
+    assert "SLM_BASE_URL = https://small.example.test" in text
+    assert "url-secret-xyz" not in text and "free-ish-xyz" not in text  # query strings, text: never
+    assert_no_secret_printed(text)
+
+
 def test_a_value_outside_the_allowed_choices_is_explained(tmp_path, capsys):
     code, text = check(tmp_path, capsys, "SMALL_PROVIDER=openai\n")
     assert (
