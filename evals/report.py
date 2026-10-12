@@ -37,12 +37,20 @@ class ReportData:
     by_lang: list[GroupAccuracy]
 
     @property
-    def uses_mock(self) -> bool:
+    def mock_parts(self) -> list[str]:
+        """Which components were offline mocks when this cache was collected."""
         if self.meta is None:
-            return False
-        return any(
-            t.startswith("mock") for t in (self.meta.small, self.meta.frontier, self.meta.judge)
-        )
+            return []
+        parts = {
+            "소형 모델": self.meta.small,
+            "상용 모델": self.meta.frontier,
+            "판정기": self.meta.judge,
+        }
+        return [name for name, identity in parts.items() if identity.startswith("mock")]
+
+    @property
+    def uses_mock(self) -> bool:
+        return bool(self.mock_parts)
 
 
 def drop_stale(
@@ -160,10 +168,18 @@ def render_markdown(data: ReportData) -> str:
     out: list[str] = [f"# 라우팅 평가 리포트 · {data.name}", ""]
 
     warnings = []
-    if data.uses_mock:
+    if data.mock_parts == ["판정기"]:
+        # The model answers are real, so accuracy / cost / latency of the baselines are valid;
+        # only what depends on the judge is not.
         warnings.append(
-            "**mock provider로 수집한 결과입니다.** 응답이 echo라서 정확도·비용·지연은 의미가 없고, "
-            "이 리포트는 파이프라인이 동작하는지만 보여 줍니다."
+            "**판정기가 mock입니다.** `hybrid@τ`·`judge_only@τ` 행, 판정 호출 비용·지연, "
+            "'판정기 품질' 표는 의미가 없습니다. 소형·상용 모델의 정확도·비용·지연과 "
+            "`all_small`·`all_frontier`·`rules` 행은 실제 측정값입니다."
+        )
+    elif data.uses_mock:
+        warnings.append(
+            f"**mock provider({', '.join(data.mock_parts)})로 수집한 결과입니다.** 모델 응답이 "
+            "가짜(echo)라서 정확도·비용·지연은 의미가 없고, 이 리포트는 파이프라인이 동작하는지만 보여 줍니다."
         )
     if data.labels_reviewed is False:
         warnings.append(
@@ -266,6 +282,7 @@ def write_report(data: ReportData, out_dir: str | Path) -> list[Path]:
             {
                 "name": data.name,
                 "uses_mock": data.uses_mock,
+                "mock_parts": data.mock_parts,
                 "labels_reviewed": data.labels_reviewed,
                 "n_items": data.n_items,
                 "n_usable": data.n_usable,

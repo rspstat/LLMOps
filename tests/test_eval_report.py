@@ -77,6 +77,44 @@ async def test_mock_runs_are_flagged_at_the_top_and_real_runs_are_not():
 
 
 @pytest.mark.anyio
+async def test_a_mock_judge_alone_invalidates_only_the_judge_dependent_numbers():
+    # The likely first real run: real models, but no Jev access yet.
+    text = render_markdown(await build(make_meta(judge="mock:judge")))
+    assert "판정기가 mock입니다" in text
+    assert "`all_small`·`all_frontier`·`rules` 행은 실제 측정값" in text
+    assert "모델 응답이" not in text  # the blanket "everything is fake" warning is not shown
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("meta_kwargs", "parts"),
+    [
+        ({"small": "mock:small"}, ["소형 모델"]),
+        ({"frontier": "mock:frontier", "judge": "mock:judge"}, ["상용 모델", "판정기"]),
+        (
+            {"small": "mock:small", "frontier": "mock:frontier", "judge": "mock:judge"},
+            ["소형 모델", "상용 모델", "판정기"],
+        ),
+    ],
+)
+async def test_a_mock_model_makes_the_whole_report_meaningless_and_names_the_parts(
+    meta_kwargs, parts
+):
+    data = await build(make_meta(**meta_kwargs))
+    assert data.mock_parts == parts and data.uses_mock
+    text = render_markdown(data)
+    assert f"mock provider({', '.join(parts)})로 수집한 결과" in text
+    assert "판정기가 mock입니다" not in text
+
+
+@pytest.mark.anyio
+async def test_summary_json_lists_which_parts_were_mock(tmp_path):
+    data = await build(make_meta(judge="mock:judge"))
+    summary = json.loads(write_report(data, tmp_path)[3].read_text(encoding="utf-8"))
+    assert summary["mock_parts"] == ["판정기"] and summary["uses_mock"] is True
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("kwargs", "needle", "present"),
     [
