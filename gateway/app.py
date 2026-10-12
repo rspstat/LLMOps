@@ -6,6 +6,7 @@ from gateway.routes import router
 from gateway.settings import Settings
 from gateway.trace import TraceStore, create_trace_store
 from gateway.wiring import build_pipeline, build_registry
+from providers.decision import DecisionProvider
 from providers.registry import ProviderRegistry
 
 
@@ -24,13 +25,14 @@ def create_app(
     *,
     trace_store: TraceStore | None = None,
     providers: ProviderRegistry | None = None,
+    judge: DecisionProvider | None = None,
 ) -> FastAPI:
-    """Build the gateway. `trace_store` / `providers` let tests inject fakes."""
+    """Build the gateway. `trace_store` / `providers` / `judge` let tests inject fakes."""
     settings = settings or Settings()
     app = FastAPI(title="LLMOps Gateway")
     app.state.settings = settings
     app.state.trace_store = trace_store or create_trace_store(settings.database_url)
-    app.state.pipeline = build_pipeline(settings, providers or build_registry(settings))
+    app.state.pipeline = build_pipeline(settings, providers or build_registry(settings), judge)
     app.add_middleware(RequestIdMiddleware)
     app.add_exception_handler(Exception, _unhandled_error)
     app.include_router(router)

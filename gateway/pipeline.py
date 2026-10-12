@@ -14,7 +14,7 @@ from providers.base import (
     ProviderResponse,
 )
 from providers.registry import ProviderRegistry
-from router.rule_router import RouteDecision, RuleRouter
+from router.base import JudgeRecord, RouteDecision, Router
 
 
 class ProviderUnavailableError(Exception):
@@ -51,22 +51,28 @@ def _elapsed_ms(start: float) -> int:
 
 
 class Pipeline:
-    """Input guard -> router -> provider (with fallback), recording one trace event per stage."""
+    """Input guard -> router -> provider (with fallback), recording one trace event per stage.
+
+    When the router consulted a judge, a `judge` event is recorded just before the `router`
+    event. The router event's latency covers the whole routing step, judge call included.
+    """
 
     def __init__(
         self,
         *,
         guard: InputGuard,
-        router: RuleRouter,
+        router: Router,
         providers: ProviderRegistry,
         prices: dict[str, Price],
         max_output_tokens: int,
         store_content: bool = False,
+        judge_price: Price | None = None,
     ) -> None:
         self._guard = guard
         self._router = router
         self._providers = providers
         self._prices = prices
+        self._judge_price = judge_price or Price()
         self._max_output_tokens = max_output_tokens
         self._store_content = store_content
 
@@ -104,13 +110,15 @@ class Pipeline:
 
         user_text = "\n".join(m.content for m in messages if m.role == "user")
         start = time.perf_counter()
-        route = self._router.decide(user_text)
+        route = await self._router.route(user_text)
+        if route.judge is not None:
+            self._record_judge(recorder, route.judge)
         recorder.record(
             "router",
             route.route.value,
             confidence=route.confidence,
             latency_ms=_elapsed_ms(start),
-            detail={"reason": route.reason},
+            detail={"reason": route.reason, **route.detail},
         )
 
         request = ProviderRequest(
@@ -129,6 +137,28 @@ class Pipeline:
         if response is not None:
             return Completed(response, route, fallback.name, fallback_used=True)
         raise ProviderUnavailableError("routed provider and fallback both failed")
+
+    def _record_judge(self, recorder: TraceRecorder, judge: JudgeRecord) -> None:
+        detail: dict = {"provider": judge.provider, "policy_version": judge.policy_version}
+        if not judge.ok:
+            recorder.record(
+                "judge",
+                "error",
+                latency_ms=judge.latency_ms,
+                detail={**detail, "error": judge.error},
+            )
+            return
+        recorder.record(
+            "judge",
+            str(judge.choice),
+            confidence=judge.confidence,
+            model=judge.model,
+            prompt_tokens=judge.input_tokens,
+            completion_tokens=judge.output_tokens,
+            cost_usd=self._judge_price.cost(judge.input_tokens, judge.output_tokens),
+            latency_ms=judge.latency_ms,
+            detail={**detail, "probabilities": dict(judge.probabilities or {})},
+        )
 
     async def _attempt(
         self,

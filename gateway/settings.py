@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from router.rule_router import DEFAULT_FRONTIER_KEYWORDS
@@ -29,10 +29,24 @@ class Settings(BaseSettings):
     guard_max_input_chars: int = 8000
     guard_block_injection: bool = True
 
-    # Router
+    # Router. `rules` = stage-1 behaviour (no judge calls); `hybrid` = rule hit is final, otherwise
+    # ask the judge; `judge_only` = always ask the judge (to compare it against the rules).
+    router_mode: Literal["rules", "hybrid", "judge_only"] = "rules"
     router_long_prompt_chars: int = 600
     router_frontier_keywords: tuple[str, ...] = DEFAULT_FRONTIER_KEYWORDS
     router_default_confidence: float = 0.5
+    # The small model needs p(easy) >= this from the judge; otherwise the request is promoted.
+    router_promote_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
+    # Judge (closed-set decisions for the router). Defaults to the offline mock, so a Jev key in
+    # `.env` is never used unless JUDGE_PROVIDER=jev. JEV_BASE_URL is the full endpoint URL.
+    judge_provider: Literal["mock", "jev"] = "mock"
+    jev_api_key: SecretStr = SecretStr("")
+    jev_base_url: str = "https://api.typesafe.ai/v1/systemone"
+    jev_model: str = "jev-latest"
+    jev_timeout_s: float = 5.0
+    jev_price_in_per_mtok: float = 0.0
+    jev_price_out_per_mtok: float = 0.0
 
     # Providers. Both default to the offline mock, so keys in `.env` never cause real calls
     # unless these are changed explicitly.
@@ -60,4 +74,6 @@ class Settings(BaseSettings):
                 raise ValueError("FRONTIER_MODEL is required when FRONTIER_PROVIDER=openai")
             if not self.openai_api_key.get_secret_value():
                 raise ValueError("OPENAI_API_KEY is required when FRONTIER_PROVIDER=openai")
+        if self.judge_provider == "jev" and not self.jev_api_key.get_secret_value():
+            raise ValueError("JEV_API_KEY is required when JUDGE_PROVIDER=jev")
         return self

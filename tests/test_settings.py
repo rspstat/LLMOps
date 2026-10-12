@@ -13,6 +13,9 @@ def test_env_example_loads_and_is_safe_by_default():
     assert settings.trace_store_content is False
     assert settings.router_frontier_keywords == DEFAULT_FRONTIER_KEYWORDS
     assert settings.gateway_api_key.get_secret_value() == ""
+    # Stage-2 features stay off until explicitly enabled.
+    assert settings.router_mode == "rules" and settings.judge_provider == "mock"
+    assert settings.jev_api_key.get_secret_value() == ""
 
 
 def test_secrets_are_masked_in_repr():
@@ -30,6 +33,21 @@ def test_openai_frontier_requires_model_and_key():
         Settings(_env_file=None, frontier_provider="openai", openai_api_key="k")
     with pytest.raises(ValidationError, match="OPENAI_API_KEY"):
         Settings(_env_file=None, frontier_provider="openai", frontier_model="m")
+
+
+def test_jev_judge_requires_a_key_and_masks_it():
+    with pytest.raises(ValidationError, match="JEV_API_KEY"):
+        Settings(_env_file=None, judge_provider="jev")
+    settings = Settings(_env_file=None, judge_provider="jev", jev_api_key="jev-secret")
+    assert "jev-secret" not in repr(settings)
+
+
+def test_router_mode_and_threshold_are_validated():
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, router_mode="always-jev")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, router_promote_threshold=1.5)
+    assert Settings(_env_file=None, router_mode="judge_only").router_mode == "judge_only"
 
 
 def test_keywords_can_be_overridden_from_environment(monkeypatch):
