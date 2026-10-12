@@ -1,5 +1,5 @@
 import pytest
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.testclient import TestClient
 
 from gateway.app import create_app
@@ -39,16 +39,28 @@ def test_request_id_is_generated_when_absent(client):
     assert first and second and first != second
 
 
-def test_valid_client_request_id_is_echoed(client):
-    response = client.get("/healthz", headers={"X-Request-ID": "abc-123_ok.1"})
-    assert response.headers["X-Request-ID"] == "abc-123_ok.1"
+def test_request_id_is_server_generated_even_if_client_sends_one(client):
+    # The ID is the trace key; honouring client values would allow collisions and forgery.
+    headers = {"X-Request-ID": "abc-123_ok.1"}
+    first = client.get("/healthz", headers=headers).headers["X-Request-ID"]
+    second = client.get("/healthz", headers=headers).headers["X-Request-ID"]
+    assert "abc-123_ok.1" not in (first, second)
+    assert first != second
 
 
-@pytest.mark.parametrize("bad", ["has space", "x" * 65, "semi;colon", "new\tline"])
-def test_invalid_client_request_id_is_replaced(client, bad):
-    response = client.get("/healthz", headers={"X-Request-ID": bad})
-    assert response.headers["X-Request-ID"] != bad
-    assert response.headers["X-Request-ID"]
+def test_client_request_id_is_kept_for_correlation_only_if_safe(app):
+    seen: list[str | None] = []
+
+    @app.get("/whoami")
+    async def whoami(request: Request) -> None:
+        seen.append(request.state.client_request_id)
+
+    client = TestClient(app)
+    client.get("/whoami", headers={"X-Request-ID": "abc-123_ok.1"})
+    client.get("/whoami", headers={"X-Request-ID": "has space"})
+    client.get("/whoami", headers={"X-Request-ID": "x" * 65})
+    client.get("/whoami")
+    assert seen == ["abc-123_ok.1", None, None, None]
 
 
 def test_protected_route_requires_bearer_key(client, auth_headers):
@@ -75,6 +87,6 @@ def test_empty_configured_key_rejects_everything():
 
 
 def test_unhandled_error_returns_500_with_request_id(client):
-    response = client.get("/boom", headers={"X-Request-ID": "trace-me"})
+    response = client.get("/boom")
     assert response.status_code == 500
-    assert response.headers["X-Request-ID"] == "trace-me"
+    assert response.headers["X-Request-ID"]
