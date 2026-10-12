@@ -52,6 +52,19 @@ class Estimate:
     cost_usd: float
 
 
+def key_from_parts(
+    item: EvalItem,
+    small: str,
+    frontier: str,
+    judge: str,
+    policy_version: str,
+    max_tokens: int,
+) -> str:
+    return "|".join(
+        [prompt_hash(item.prompt), small, frontier, judge, policy_version, str(max_tokens)]
+    )
+
+
 def make_key(
     item: EvalItem,
     small: ModelTarget,
@@ -59,15 +72,8 @@ def make_key(
     judge: JudgeTarget,
     max_tokens: int,
 ) -> str:
-    return "|".join(
-        [
-            prompt_hash(item.prompt),
-            small.identity,
-            frontier.identity,
-            judge.identity,
-            POLICY_VERSION,
-            str(max_tokens),
-        ]
+    return key_from_parts(
+        item, small.identity, frontier.identity, judge.identity, POLICY_VERSION, max_tokens
     )
 
 
