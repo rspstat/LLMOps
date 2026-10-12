@@ -28,6 +28,14 @@ class ProviderError(Exception):
     """Any failure to obtain a completion (network, HTTP status, malformed payload)."""
 
 
+CHARS_PER_TOKEN = 4
+
+
+def estimate_tokens(text: str) -> int:
+    """Rough token count, used by the mock and when a server omits `usage`."""
+    return max(1, len(text) // CHARS_PER_TOKEN)
+
+
 @runtime_checkable
 class Provider(Protocol):
     """Common interface every model backend (mock, SLM, frontier API, Jev) implements.

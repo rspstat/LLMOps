@@ -1,11 +1,12 @@
-from providers.base import ProviderError, ProviderRequest, ProviderResponse
+from providers.base import (
+    CHARS_PER_TOKEN,
+    ProviderError,
+    ProviderRequest,
+    ProviderResponse,
+    estimate_tokens,
+)
 
-_CHARS_PER_TOKEN = 4
 _ECHO_LIMIT = 80
-
-
-def estimate_tokens(text: str) -> int:
-    return max(1, len(text) // _CHARS_PER_TOKEN)
 
 
 class MockProvider:
@@ -29,7 +30,7 @@ class MockProvider:
         completion_tokens = estimate_tokens(content)
         finish_reason = "stop"
         if completion_tokens > request.max_tokens:
-            content = content[: request.max_tokens * _CHARS_PER_TOKEN]
+            content = content[: request.max_tokens * CHARS_PER_TOKEN]
             completion_tokens = request.max_tokens
             finish_reason = "length"
 
