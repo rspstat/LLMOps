@@ -39,3 +39,6 @@ class RuleRouter:
             if keyword.casefold() in lowered:
                 return RouteDecision(Route.FRONTIER, f"keyword:{keyword}", 1.0)
         return RouteDecision(Route.SMALL, "default_small", self.config.default_confidence)
+
+    async def route(self, text: str) -> RouteDecision:
+        return self.decide(text)
