@@ -80,6 +80,20 @@ def build_targets(settings: Settings) -> tuple[ModelTarget, ModelTarget, JudgeTa
     )
 
 
+def unpriced_paid_parts(settings: Settings, frontier: ModelTarget, judge: JudgeTarget) -> list[str]:
+    """Live components that bill per token but have no price configured.
+
+    The budget guard sums price x tokens, so a zero price silently disables it for that
+    component. A local small model is legitimately free, so it is not checked.
+    """
+    missing = []
+    if settings.frontier_provider != "mock" and frontier.price == Price():
+        missing.append("FRONTIER_PRICE_IN_PER_MTOK / FRONTIER_PRICE_OUT_PER_MTOK")
+    if settings.judge_provider != "mock" and judge.price == Price():
+        missing.append("JEV_PRICE_IN_PER_MTOK / JEV_PRICE_OUT_PER_MTOK")
+    return missing
+
+
 def select_items(items: Sequence[EvalItem], limit: int | None) -> list[EvalItem]:
     """A deterministic spread over languages and categories (file order is grouped, so the first
     N items would be all English / all factual)."""
@@ -118,6 +132,13 @@ def _cmd_collect(
         f"({est.calls} calls, ~{est.input_tokens} input tokens, "
         f"up to {est.max_output_tokens} output tokens, est. cost <= ${est.cost_usd:.4f}) [{mode}]"
     )
+    unpriced = unpriced_paid_parts(settings, frontier, judge)
+    if unpriced:
+        print(
+            f"WARNING: no price set for {', '.join(unpriced)}. The estimate above and --budget-usd "
+            "would treat those calls as free.",
+            file=sys.stderr,
+        )
     if args.dry_run:
         print("dry run: nothing was called")
         return EXIT_OK
@@ -132,6 +153,13 @@ def _cmd_collect(
         if args.budget_usd is None:
             print(
                 "Refusing live calls without --budget-usd (use --dry-run to see the estimate).",
+                file=sys.stderr,
+            )
+            return EXIT_REFUSED
+        if unpriced:
+            print(
+                "Refusing live calls: the budget cannot be enforced without prices. Set "
+                f"{', '.join(unpriced)} in .env (USD per 1M tokens, from the price list).",
                 file=sys.stderr,
             )
             return EXIT_REFUSED

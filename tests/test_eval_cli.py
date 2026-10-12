@@ -5,11 +5,19 @@ import pytest
 
 from evals import run
 from evals.cache import EvalCache
+from evals.collect import CollectStats
 from evals.schema import load_items
 from gateway.settings import Settings
 
 MOCK = Settings(_env_file=None)
 LIVE_SLM = Settings(_env_file=None, small_provider="slm", slm_model="tiny")
+PAID = {"frontier_provider": "openai", "frontier_model": "big", "openai_api_key": "k"}
+PAID_NO_PRICE = Settings(_env_file=None, **PAID)
+PAID_PRICED = Settings(
+    _env_file=None, **PAID, frontier_price_in_per_mtok=1.0, frontier_price_out_per_mtok=2.0
+)
+JEV_NO_PRICE = Settings(_env_file=None, judge_provider="jev", jev_api_key="k")
+LIVE_OK = {"ALLOW_LIVE_CALLS": "1"}
 
 
 @pytest.fixture(autouse=True)
@@ -115,6 +123,57 @@ def test_live_dry_run_needs_no_flag_and_calls_nothing(tmp_path, capsys):
     )
     out = capsys.readouterr().out
     assert "[LIVE]" in out and "nothing was called" in out
+
+
+def test_dry_run_warns_that_an_unpriced_paid_model_makes_the_estimate_meaningless(tmp_path, capsys):
+    assert cli(["collect", "--name", "m", "--dry-run"], tmp_path, settings=PAID_NO_PRICE) == 0
+    err = capsys.readouterr().err
+    assert "WARNING" in err and "FRONTIER_PRICE_IN_PER_MTOK" in err
+
+
+@pytest.mark.parametrize(
+    ("settings", "missing"),
+    [(PAID_NO_PRICE, "FRONTIER_PRICE"), (JEV_NO_PRICE, "JEV_PRICE")],
+)
+def test_live_collect_is_refused_when_a_paid_model_has_no_price(
+    tmp_path, capsys, settings, missing
+):
+    # Without a price the budget guard sums zero and never stops the run.
+    code = cli(
+        ["collect", "--name", "m", "--budget-usd", "0.5"],
+        tmp_path,
+        environ=LIVE_OK,
+        settings=settings,
+    )
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "budget cannot be enforced" in err and missing in err
+    assert not (tmp_path / "cache").exists()
+
+
+def test_a_local_small_model_needs_no_price(tmp_path, capsys):
+    assert cli(["collect", "--name", "m", "--dry-run"], tmp_path, settings=LIVE_SLM) == 0
+    assert "WARNING" not in capsys.readouterr().err
+
+
+def test_priced_live_collect_passes_the_budget_on_and_records_prices(tmp_path, monkeypatch):
+    seen = {}
+
+    async def fake_collect(items, cache, **kwargs):
+        seen.update(kwargs, n_items=len(items))
+        return CollectStats(total=len(items))  # no model is called
+
+    monkeypatch.setattr(run, "collect", fake_collect)
+    code = cli(
+        ["collect", "--name", "m", "--limit", "3", "--budget-usd", "0.5"],
+        tmp_path,
+        environ=LIVE_OK,
+        settings=PAID_PRICED,
+    )
+    assert code == 0 and seen["budget_usd"] == 0.5 and seen["n_items"] == 3
+    meta = EvalCache(tmp_path / "cache", "m").read_meta()
+    assert meta.frontier == "openai:big@https://api.openai.com/v1"
+    assert meta.prices["frontier"] == {"input": 1.0, "output": 2.0}
 
 
 def test_report_needs_collected_data(tmp_path, capsys):
