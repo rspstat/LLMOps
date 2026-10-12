@@ -44,8 +44,11 @@ uv run ruff check . && uv run ruff format --check .       # 린트 + 포맷 검�
 uv run uvicorn gateway.app:create_app --factory --port 8000   # 게이트웨이 실행 (.env 필요)
 
 # 실제 모델 1회 호출 — 비용 발생. 내가 요청할 때만 실행한다.
-ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 frontier
+ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 frontier, jev
 ```
+
+- `--target jev`는 실제 라우팅 질문(easy/hard)을 Jev에 1회 보낸다. 아직 한 번도 실행하지 않았다(접근 권한·키 없음).
+- 라우팅 모드는 `ROUTER_MODE`(rules | hybrid | judge_only), 판정기는 `JUDGE_PROVIDER`(mock | jev). 기본은 `rules` + `mock`이라 외부 호출이 없다.
 
 - Windows PowerShell에서는 `$env:ALLOW_LIVE_CALLS = "1"; uv run python -m scripts.smoke_live --target slm`.
 - provider 기본값은 mock이라 `.env`에 키가 있어도 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`를 바꾸기 전에는 외부 호출이 없다.
@@ -55,7 +58,7 @@ ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 f
 
 - 사소하지 않은 작업은 **구현 전에 계획을 먼저 제시**하고 승인을 받는다.
 - 한 번에 작은 단위로 진행하고, 변경 후에는 테스트·린트를 실제로 실행해 결과를 확인한다. 실패하면 숨기지 말고 원인과 함께 보고한다.
-- 현재 단계는 README 로드맵의 **0 → 1단계**다. 로드맵 밖의 기능은 추가하지 않는다.
+- 현재 단계는 README 로드맵의 **2단계(라우팅 엔진 v1)까지 구현 완료, 다음은 3단계(평가 v1)**다. 로드맵 밖의 기능은 추가하지 않는다.
 - 외부 API(Jev, 상용 LLM)를 실제로 호출하면 비용이 든다. 테스트는 기본적으로 mock을 쓰고, 실제 호출은 내가 요청할 때만 한다.
 - 파인튜닝은 GPU 제약상 1B 이하 모델 위주로 설계한다.
 
