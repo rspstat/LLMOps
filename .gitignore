@@ -56,3 +56,7 @@ docker-compose.override.yml
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Eval runs: collected model outputs and generated reports (copy meaningful results into docs/ by hand)
+evals/cache/
+evals/reports/
