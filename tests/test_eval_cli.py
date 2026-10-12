@@ -156,6 +156,26 @@ def test_a_local_small_model_needs_no_price(tmp_path, capsys):
     assert "WARNING" not in capsys.readouterr().err
 
 
+HOSTED_SMALL = {"small_provider": "slm", "slm_model": "tiny", "slm_api_key": "k"}
+
+
+def test_a_hosted_small_model_is_billed_so_it_needs_a_price_too(tmp_path, capsys):
+    unpriced = Settings(_env_file=None, **HOSTED_SMALL)
+    code = cli(
+        ["collect", "--name", "m", "--budget-usd", "1"],
+        tmp_path,
+        environ=LIVE_OK,
+        settings=unpriced,
+    )
+    assert code == 2 and "SMALL_PRICE_IN_PER_MTOK" in capsys.readouterr().err
+
+    priced = Settings(
+        _env_file=None, **HOSTED_SMALL, small_price_in_per_mtok=0.1, small_price_out_per_mtok=0.4
+    )
+    assert cli(["collect", "--name", "m", "--dry-run"], tmp_path, settings=priced) == 0
+    assert "WARNING" not in capsys.readouterr().err
+
+
 def test_priced_live_collect_passes_the_budget_on_and_records_prices(tmp_path, monkeypatch):
     seen = {}
 

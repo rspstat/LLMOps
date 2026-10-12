@@ -102,6 +102,32 @@ def test_failed_call_exits_nonzero_without_retrying(live_settings, capsys):
     assert "HTTP 500" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    ("key", "expected"), [("slm-secret-key", "Bearer slm-secret-key"), ("", None)]
+)
+def test_slm_target_sends_the_key_only_when_one_is_configured(key, expected, capsys):
+    # A hosted small model needs its key; a self-hosted server (Ollama, vLLM) takes none.
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["auth"] = request.headers.get("authorization")
+        body = {"choices": [{"message": {"content": "hi"}}], "usage": {}}
+        return httpx.Response(200, json=body)
+
+    settings = Settings(
+        _env_file=None, slm_base_url="http://slm.test/v1", slm_model="tiny", slm_api_key=key
+    )
+    code = smoke_live.main(
+        ["--target", "slm"],
+        {"ALLOW_LIVE_CALLS": "1"},
+        settings=settings,
+        transport=httpx.MockTransport(handler),
+    )
+    out = capsys.readouterr()
+    assert code == smoke_live.EXIT_OK and seen["auth"] == expected
+    assert "slm-secret-key" not in out.out + out.err
+
+
 JEV_SECRET = "jev-test-secret-value"
 
 

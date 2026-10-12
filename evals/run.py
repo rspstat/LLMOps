@@ -50,7 +50,11 @@ def is_live(settings: Settings) -> bool:
 
 def build_targets(settings: Settings) -> tuple[ModelTarget, ModelTarget, JudgeTarget]:
     registry = build_registry(settings)
-    small_id = "mock:small" if settings.small_provider == "mock" else f"slm:{settings.slm_model}"
+    small_id = (
+        "mock:small"
+        if settings.small_provider == "mock"
+        else f"slm:{settings.slm_model}@{settings.slm_base_url}"
+    )
     frontier_id = (
         "mock:frontier"
         if settings.frontier_provider == "mock"
@@ -80,13 +84,21 @@ def build_targets(settings: Settings) -> tuple[ModelTarget, ModelTarget, JudgeTa
     )
 
 
-def unpriced_paid_parts(settings: Settings, frontier: ModelTarget, judge: JudgeTarget) -> list[str]:
+def unpriced_paid_parts(
+    settings: Settings, small: ModelTarget, frontier: ModelTarget, judge: JudgeTarget
+) -> list[str]:
     """Live components that bill per token but have no price configured.
 
     The budget guard sums price x tokens, so a zero price silently disables it for that
-    component. A local small model is legitimately free, so it is not checked.
+    component. A self-hosted small model (no API key) is legitimately free; one behind an API
+    key is a hosted, billed service.
     """
     missing = []
+    hosted_small = settings.small_provider != "mock" and bool(
+        settings.slm_api_key.get_secret_value()
+    )
+    if hosted_small and small.price == Price():
+        missing.append("SMALL_PRICE_IN_PER_MTOK / SMALL_PRICE_OUT_PER_MTOK")
     if settings.frontier_provider != "mock" and frontier.price == Price():
         missing.append("FRONTIER_PRICE_IN_PER_MTOK / FRONTIER_PRICE_OUT_PER_MTOK")
     if settings.judge_provider != "mock" and judge.price == Price():
@@ -132,7 +144,7 @@ def _cmd_collect(
         f"({est.calls} calls, ~{est.input_tokens} input tokens, "
         f"up to {est.max_output_tokens} output tokens, est. cost <= ${est.cost_usd:.4f}) [{mode}]"
     )
-    unpriced = unpriced_paid_parts(settings, frontier, judge)
+    unpriced = unpriced_paid_parts(settings, small, frontier, judge)
     if unpriced:
         print(
             f"WARNING: no price set for {', '.join(unpriced)}. The estimate above and --budget-usd "

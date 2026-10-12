@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     provider_timeout_s: float = 30.0
     slm_base_url: str = "http://localhost:8001/v1"
     slm_model: str = ""
+    # Empty for a self-hosted server (vLLM, Ollama). Set it when the small model is a hosted API.
+    slm_api_key: SecretStr = SecretStr("")
     frontier_base_url: str = "https://api.openai.com/v1"
     frontier_model: str = ""
     openai_api_key: SecretStr = SecretStr("")

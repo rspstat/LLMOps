@@ -23,6 +23,12 @@ def test_secrets_are_masked_in_repr():
     assert "top-secret" not in repr(settings) and "sk-secret" not in repr(settings)
 
 
+def test_slm_api_key_is_optional_and_masked():
+    assert Settings(_env_file=None).slm_api_key.get_secret_value() == ""
+    hosted = Settings(_env_file=None, small_provider="slm", slm_model="m", slm_api_key="slm-secret")
+    assert "slm-secret" not in repr(hosted)
+
+
 def test_slm_provider_requires_a_model():
     with pytest.raises(ValidationError, match="SLM_MODEL"):
         Settings(_env_file=None, small_provider="slm")

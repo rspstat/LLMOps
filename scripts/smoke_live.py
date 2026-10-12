@@ -52,6 +52,7 @@ def build_provider(
             "slm",
             base_url=settings.slm_base_url,
             model=settings.slm_model,
+            api_key=settings.slm_api_key.get_secret_value() or None,
             timeout_s=TIMEOUT_S,
             transport=transport,
         )
