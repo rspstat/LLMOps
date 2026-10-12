@@ -44,6 +44,26 @@ def test_a_validation_error_never_prints_the_raw_input(kwargs):
     assert "validation error" in text and "secret-xyz" not in text
 
 
+def test_blank_lines_in_the_env_file_fall_back_to_the_defaults(tmp_path):
+    # `.env.example` has many blank `NAME=` lines; a blank number must not stop the app loading.
+    env = tmp_path / ".env"
+    env.write_text(
+        "JEV_PRICE_OUT_PER_MTOK=\nROUTER_PROMOTE_THRESHOLD=\nMAX_OUTPUT_TOKENS=\nJEV_MODEL=\n",
+        encoding="utf-8",
+    )
+    settings = Settings(_env_file=env)
+    assert settings.jev_price_out_per_mtok == 0.0
+    assert settings.router_promote_threshold == 0.7 and settings.max_output_tokens == 1024
+    assert settings.jev_model == "jev-latest"  # blank text also means "default", not an empty model
+
+
+def test_text_in_a_numeric_variable_is_still_an_error(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("JEV_PRICE_OUT_PER_MTOK=free\n", encoding="utf-8")
+    with pytest.raises(ValidationError, match="jev_price_out_per_mtok"):
+        Settings(_env_file=env)
+
+
 def test_slm_api_key_is_optional_and_masked():
     assert Settings(_env_file=None).slm_api_key.get_secret_value() == ""
     hosted = Settings(_env_file=None, small_provider="slm", slm_model="m", slm_api_key="slm-secret")

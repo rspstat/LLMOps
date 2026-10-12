@@ -8,6 +8,8 @@ printed; values of keys are never read into the output.
 from collections.abc import Mapping
 from urllib.parse import urlsplit
 
+from pydantic import ValidationError
+
 from gateway.settings import Settings
 
 # Variables .env.example lists that no adapter in this project reads (yet).
@@ -23,6 +25,27 @@ def _host(url: str) -> str:
 
 def _filled(value: str | None) -> bool:
     return bool((value or "").strip())
+
+
+_NUMBER_ERRORS = {"float_parsing", "int_parsing", "float_type", "int_type"}
+
+
+def describe_load_errors(exc: ValidationError) -> list[str]:
+    """One friendly line per bad setting, naming the .env variable. Values are never included."""
+    lines = []
+    for err in exc.errors(include_input=False, include_url=False, include_context=False):
+        name = ".".join(str(part) for part in err["loc"]).upper()
+        if err["type"] in _NUMBER_ERRORS:
+            lines.append(
+                f"{name}: 숫자여야 합니다. 설명 글자나 오타가 들어 있을 수 있으니 `{name}=0` 처럼 숫자만 쓰세요."
+            )
+        elif err["type"] == "literal_error":
+            lines.append(f"{name}: 허용되지 않는 값입니다 ({err['msg']}).")
+        elif name:
+            lines.append(f"{name}: {err['msg']}")
+        else:  # a rule across several settings
+            lines.append(err["msg"].removeprefix("Value error, "))
+    return lines
 
 
 def diagnose(

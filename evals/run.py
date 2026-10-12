@@ -21,9 +21,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import dotenv_values
+from pydantic import ValidationError
 
 from evals.cache import CacheMeta, EvalCache
-from evals.check import diagnose
+from evals.check import describe_load_errors, diagnose
 from evals.collect import JudgeTarget, ModelTarget, collect, estimate, pending_items
 from evals.report import build_report_data, write_report
 from evals.schema import EvalItem, file_hash, load_items
@@ -121,9 +122,16 @@ def _cmd_check(args: argparse.Namespace, settings: Settings | None) -> int:
     """Explain what .env will do. Prints names, on/off states and hosts, never key values."""
     env_path = Path(args.env_file)
     defined = dotenv_values(env_path) if env_path.exists() else {}
-    settings = settings or Settings(_env_file=env_path)
-    lines, problems = diagnose(settings, defined, env_path.exists())
     print(f"{env_path}: {len(defined)}개 변수 정의됨" if env_path.exists() else f"{env_path}: 없음")
+    try:
+        settings = settings or Settings(_env_file=env_path)
+    except ValidationError as exc:
+        errors = describe_load_errors(exc)
+        print(f"\n설정을 읽을 수 없습니다. 고쳐야 할 것 {len(errors)}개:")
+        for number, line in enumerate(errors, start=1):
+            print(f"  {number}. {line}")
+        return EXIT_ERROR
+    lines, problems = diagnose(settings, defined, env_path.exists())
     for line in lines:
         print(line)
     if not problems:

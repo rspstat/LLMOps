@@ -16,7 +16,11 @@ class Settings(BaseSettings):
 
     # hide_input_in_errors: a validation error otherwise prints the raw input, API keys included,
     # into terminals, tracebacks and logs.
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
+    # env_ignore_empty: a blank `NAME=` line means "use the default". Without it a blank number
+    # (e.g. `JEV_PRICE_OUT_PER_MTOK=`) fails to parse and the whole configuration refuses to load.
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", hide_input_in_errors=True, env_ignore_empty=True
+    )
 
     # Clients must send this as a Bearer token. Empty means every protected call is rejected.
     gateway_api_key: SecretStr = SecretStr("")

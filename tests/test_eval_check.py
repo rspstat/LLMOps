@@ -149,6 +149,27 @@ def test_an_inconsistent_config_reports_the_setting_without_dumping_secrets(tmp_
     assert_no_secret_printed(text)
 
 
+def test_text_in_a_numeric_variable_names_the_variable_but_not_the_text(tmp_path, capsys):
+    # The reported case: a note such as "free" typed where a price number belongs.
+    code, text = check(tmp_path, capsys, "JEV_PRICE_OUT_PER_MTOK=free-ish-xyz\n")
+    assert code == 1
+    assert "JEV_PRICE_OUT_PER_MTOK: 숫자여야 합니다" in text and "JEV_PRICE_OUT_PER_MTOK=0" in text
+    assert "free-ish-xyz" not in text
+
+
+def test_a_value_outside_the_allowed_choices_is_explained(tmp_path, capsys):
+    code, text = check(tmp_path, capsys, "SMALL_PROVIDER=openai\n")
+    assert (
+        code == 1 and "SMALL_PROVIDER: 허용되지 않는 값입니다" in text and "'mock' or 'slm'" in text
+    )
+
+
+def test_blank_numeric_values_mean_use_the_default_not_an_error(tmp_path, capsys):
+    blanks = ["JEV_PRICE_OUT_PER_MTOK", "SMALL_PRICE_IN_PER_MTOK", "ROUTER_PROMOTE_THRESHOLD"]
+    code, text = check(tmp_path, capsys, "".join(f"{name}=\n" for name in blanks))
+    assert code == 0 and "문제 없음" in text
+
+
 def test_the_shipped_example_file_is_coherent_as_is(capsys):
     # `cp .env.example .env` must give a config that `check` accepts (all mock, nothing filled).
     code = run.main(["check", "--env-file", ".env.example"], {})
