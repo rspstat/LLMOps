@@ -6,8 +6,9 @@ It refuses to run unless the shell sets ALLOW_LIVE_CALLS=1 for this invocation (
     PowerShell:  $env:ALLOW_LIVE_CALLS = "1"; uv run python -m scripts.smoke_live --target slm
     bash:        ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target frontier
 
-Targets use the SLM_* / FRONTIER_* / OPENAI_API_KEY settings. Safety limits: one request, no
-retries, 15 s timeout, max_tokens capped at 64.
+Targets use the SLM_* / FRONTIER_* / OPENAI_API_KEY settings; `--target jev` uses JEV_* and asks
+the real routing question (easy/hard) about --prompt. Safety limits: one request, no retries,
+15 s timeout, max_tokens capped at 64 (jev: prompt cut to 500 chars; --max-tokens is ignored).
 """
 
 import argparse
@@ -21,9 +22,12 @@ import httpx
 
 from gateway.settings import Settings
 from providers.base import ChatMessage, Provider, ProviderError, ProviderRequest
+from providers.jev import JevProvider
 from providers.openai_compat import OpenAICompatProvider
+from router.policy import POLICY_VERSION, QUESTION, build_state
 
 TIMEOUT_S = 15.0
+JEV_PROMPT_LIMIT = 500  # keep the one judged request small
 MAX_TOKENS_CAP = 64
 DEFAULT_MAX_TOKENS = 16
 DEFAULT_PROMPT = "Say hello in one word."
@@ -69,6 +73,40 @@ def build_provider(
     return provider, f"frontier {_host(settings.frontier_base_url)} model={settings.frontier_model}"
 
 
+def _smoke_jev(
+    prompt: str, settings: Settings, transport: httpx.AsyncBaseTransport | None = None
+) -> int:
+    """One real Jev call using the actual routing policy and question (not a toy prompt)."""
+    key = settings.jev_api_key.get_secret_value()
+    if not key:
+        print("Cannot run: JEV_API_KEY is not set.", file=sys.stderr)
+        return EXIT_REFUSED
+    jev = JevProvider(
+        "jev",
+        url=settings.jev_base_url,
+        model=settings.jev_model,
+        api_key=key,
+        timeout_s=TIMEOUT_S,
+        transport=transport,
+    )
+    state = build_state(prompt[:JEV_PROMPT_LIMIT])
+    print(
+        f"Calling jev {_host(settings.jev_base_url)} model={settings.jev_model} "
+        f"(policy {POLICY_VERSION}, timeout={TIMEOUT_S:.0f}s)"
+    )
+    try:
+        decision = asyncio.run(jev.decide(state, QUESTION))
+    except ProviderError as exc:
+        print(f"Call failed: {exc}", file=sys.stderr)
+        return EXIT_CALL_FAILED
+
+    print(f"model:   {decision.model}")
+    print(f"choice:  {decision.choice} (confidence={decision.confidence})")
+    print(f"probs:   {dict(decision.probabilities)}")
+    print(f"tokens:  input={decision.input_tokens} output={decision.output_tokens}")
+    return EXIT_OK
+
+
 def main(
     argv: Sequence[str] | None = None,
     environ: Mapping[str, str] | None = None,
@@ -78,7 +116,7 @@ def main(
 ) -> int:
     environ = os.environ if environ is None else environ
     parser = argparse.ArgumentParser(description="Make one real model call (opt-in).")
-    parser.add_argument("--target", choices=["slm", "frontier"], required=True)
+    parser.add_argument("--target", choices=["slm", "frontier", "jev"], required=True)
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
     args = parser.parse_args(argv)
@@ -89,6 +127,9 @@ def main(
             file=sys.stderr,
         )
         return EXIT_REFUSED
+
+    if args.target == "jev":
+        return _smoke_jev(args.prompt, settings or Settings(), transport)
 
     built = build_provider(args.target, settings or Settings(), transport)
     if isinstance(built, str):
