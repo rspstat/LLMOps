@@ -59,6 +59,8 @@ uv run python -m evals.run collect --name real --dry-run    # 실제 provider: �
 ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0.25
 ```
 
+- `uv run python -m evals.run check`는 `.env`가 실제로 무엇을 켜는지(provider 스위치, 키 유무, 단가, 오타 난 변수)를 값 없이 보여 준다. `.env` 확인은 이 명령으로 한다.
+- 모델 선택 근거와 단가 비교: `docs/api-pricing-2026-10.md`.
 - 실호출 전에 `.env`에 모델명·키·**단가**(`*_PRICE_*`)가 필요하다. 과금되는 모델에 단가가 없으면 수집이 거부된다. 항목과 실행 순서는 `evals/README.md`의 "실측" 절. `.env`는 내가 읽지 않고, 확인은 `collect --dry-run`(키를 출력하지 않음)으로 한다.
 - 소형 모델이 호스팅 API이면 `SLM_API_KEY`를 채운다 (자체 서빙이면 비움).
 - 라우팅 모드는 `ROUTER_MODE`(rules | hybrid | judge_only), 판정기는 `JUDGE_PROVIDER`(mock | jev). 기본은 `rules` + `mock`이라 외부 호출이 없다.

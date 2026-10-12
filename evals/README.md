@@ -63,6 +63,10 @@ JEV_PRICE_IN_PER_MTOK=0.042       # 회사 발표 단가. 가격표를 확인하
 실행 순서 (PowerShell):
 
 ```powershell
+# 0. .env 점검: 호출 없이, 키 값을 출력하지 않고 "무엇이 켜져 있고 무엇이 비어 있는지"를 알려 줍니다.
+#    키를 채웠는데 provider 스위치가 mock 이라 아무 일도 안 일어나는 경우가 가장 흔합니다.
+uv run python -m evals.run check
+
 # 1. 어댑터가 각 서비스와 실제로 맞는지 1회씩 확인 (호출 3번)
 $env:ALLOW_LIVE_CALLS = "1"
 uv run python -m scripts.smoke_live --target slm
