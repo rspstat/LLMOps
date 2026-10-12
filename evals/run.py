@@ -223,6 +223,14 @@ def _cmd_collect(
             f"{len(stats.failed_items)} item(s) had a failed call "
             "(recorded, and excluded from the report)"
         )
+    if stats.empty_answers:
+        print(
+            f"WARNING: {len(stats.empty_answers)} item(s) got an EMPTY answer from a model. "
+            "This is typical of a reasoning model that spent its whole --max-tokens budget "
+            "thinking; those answers are scored wrong. Use a non-reasoning chat model or raise "
+            f"--max-tokens (cap {MAX_TOKENS_CAP}). First: {', '.join(stats.empty_answers[:3])}",
+            file=sys.stderr,
+        )
     if stats.stopped_by_budget:
         print(f"stopped: budget ${args.budget_usd} reached; run again to continue from the cache")
     return EXIT_OK

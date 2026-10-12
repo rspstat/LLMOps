@@ -29,6 +29,7 @@ class ReportData:
     n_items: int
     n_usable: int
     excluded: list[tuple[str, str]]
+    empty_answers: dict[str, int]  # model -> number of usable items it answered with nothing
     taus: list[float]
     summaries: list[ConfigSummary]
     quality: list[JudgeQuality]
@@ -114,6 +115,14 @@ async def build_report_data(
         n_items=len(items),
         n_usable=len(usable.items),
         excluded=list(excluded.items()),
+        empty_answers={
+            name: count
+            for name, count in (
+                ("소형 모델", sum(cached[i.id].small.empty for i in usable.items)),
+                ("상용 모델", sum(cached[i.id].frontier.empty for i in usable.items)),
+            )
+            if count
+        },
         taus=list(taus),
         summaries=with_baseline(summaries),
         quality=quality,
@@ -184,6 +193,13 @@ def render_markdown(data: ReportData) -> str:
     if data.labels_reviewed is False:
         warnings.append(
             "데이터셋의 난이도 라벨이 **검토 전 AI 초안**입니다 (`낭비`·`위험`·작성자 라벨 기준 지표에 영향)."
+        )
+    if data.empty_answers:
+        counts = ", ".join(f"{name} {count}건" for name, count in data.empty_answers.items())
+        warnings.append(
+            f"**빈 응답이 있습니다 ({counts}).** 추론 모델이 `max_tokens`를 생각에 다 써서 답을 못 낸 "
+            "경우가 흔하며, 오답으로 채점되어 모델이 실제보다 약해 보입니다. "
+            "추론 기능이 없는 채팅 모델을 쓰거나 `--max-tokens`를 늘려 다시 수집하세요."
         )
     if data.dataset_changed:
         warnings.append(

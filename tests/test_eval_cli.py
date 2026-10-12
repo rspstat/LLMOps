@@ -196,6 +196,16 @@ def test_priced_live_collect_passes_the_budget_on_and_records_prices(tmp_path, m
     assert meta.prices["frontier"] == {"input": 1.0, "output": 2.0}
 
 
+def test_collect_warns_about_empty_model_answers(tmp_path, monkeypatch, capsys):
+    async def fake_collect(items, cache, **kwargs):
+        return CollectStats(total=len(items), collected=2, empty_answers=["a", "b"])
+
+    monkeypatch.setattr(run, "collect", fake_collect)
+    assert cli(["collect", "--name", "m", "--limit", "2"], tmp_path) == 0
+    err = capsys.readouterr().err
+    assert "WARNING: 2 item(s) got an EMPTY answer" in err and "reasoning model" in err
+
+
 def test_report_needs_collected_data(tmp_path, capsys):
     assert cli(["report", "--name", "nothing"], tmp_path) == 1
     assert "Run `collect` first" in capsys.readouterr().err

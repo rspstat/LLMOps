@@ -41,6 +41,9 @@ class CollectStats:
     spent_usd: float = 0.0
     stopped_by_budget: bool = False
     failed_items: list[str] = field(default_factory=list)
+    # Items where a model answered with nothing; usually a reasoning model that spent its whole
+    # token budget thinking. They are scored wrong, which would look like a bad model.
+    empty_answers: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +148,7 @@ async def _complete(target: ModelTarget, item: EvalItem, max_tokens: int) -> Cal
         completion_tokens=response.completion_tokens,
         latency_ms=_elapsed_ms(start),
         cost_usd=target.price.cost(response.prompt_tokens, response.completion_tokens),
+        finish_reason=response.finish_reason,
     )
 
 
@@ -210,6 +214,8 @@ async def collect(
         stats.spent_usd += record.judge.cost_usd + record.small.cost_usd + record.frontier.cost_usd
         if any(part.error for part in (record.judge, record.small, record.frontier)):
             stats.failed_items.append(item.id)
+        if record.small.empty or record.frontier.empty:
+            stats.empty_answers.append(item.id)
         if progress:
             progress(f"[{index}/{len(items)}] {item.id} (spent ${stats.spent_usd:.6f})")
     return stats

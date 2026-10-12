@@ -16,7 +16,13 @@ class CallRecord(BaseModel):
     completion_tokens: int = 0
     latency_ms: int = 0
     cost_usd: float = 0.0
+    finish_reason: str = ""
     error: str | None = None
+
+    @property
+    def empty(self) -> bool:
+        """A call that succeeded but produced no text (e.g. a reasoning model out of tokens)."""
+        return self.error is None and not self.content.strip()
 
 
 class JudgeCall(BaseModel):

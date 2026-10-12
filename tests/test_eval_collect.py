@@ -28,9 +28,18 @@ def make_item(n: int, prompt: str | None = None) -> EvalItem:
 
 
 class FakeModel:
-    def __init__(self, name: str, *, fail_on: set[str] = frozenset()):
+    def __init__(
+        self,
+        name: str,
+        *,
+        fail_on: set[str] = frozenset(),
+        content: str | None = None,
+        finish_reason: str = "stop",
+    ):
         self.name = name
         self.fail_on = set(fail_on)
+        self.content = f"{name}-answer" if content is None else content
+        self.finish_reason = finish_reason
         self.calls: list[ProviderRequest] = []
 
     async def complete(self, request: ProviderRequest) -> ProviderResponse:
@@ -38,7 +47,7 @@ class FakeModel:
         prompt = request.messages[-1].content
         if any(marker in prompt for marker in self.fail_on):
             raise ProviderError(f"{self.name}: HTTP 500")
-        return ProviderResponse(f"{self.name}-answer", self.name, 10, 2)
+        return ProviderResponse(self.content, self.name, 10, 2, self.finish_reason)
 
 
 class FakeJudge:
@@ -90,6 +99,28 @@ async def test_collects_one_complete_record_per_item_with_measured_cost(cache):
     per_item = record.small.cost_usd + record.frontier.cost_usd + record.judge.cost_usd
     assert stats.spent_usd == pytest.approx(2 * per_item)  # both items cost the same here
     assert all(c.latency_ms >= 0 for c in (record.small, record.frontier, record.judge))
+
+
+@pytest.mark.anyio
+async def test_finish_reason_is_recorded_and_empty_answers_are_reported(cache):
+    # A reasoning model that burns its whole token budget returns nothing; that must be visible,
+    # because the item is scored wrong and would otherwise look like a weak model.
+    silent = FakeModel("reasoner", content="", finish_reason="length")
+    items = [make_item(1), make_item(2)]
+    stats = await collect(items, cache, **targets(frontier=silent), max_tokens=64)
+
+    assert stats.empty_answers == ["i1", "i2"] and stats.failed_items == []
+    record = cache.load()["i1"]
+    assert record.frontier.empty and record.frontier.finish_reason == "length"
+    assert not record.small.empty and record.small.finish_reason == "stop"
+
+
+@pytest.mark.anyio
+async def test_a_failed_call_is_not_counted_as_an_empty_answer(cache):
+    small = FakeModel("small", fail_on={"boom"})
+    stats = await collect([make_item(1, "boom")], cache, **targets(small=small), max_tokens=64)
+    assert stats.failed_items == ["i1"] and stats.empty_answers == []
+    assert not cache.load()["i1"].small.empty  # it has an error instead
 
 
 @pytest.mark.anyio

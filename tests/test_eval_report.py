@@ -77,6 +77,21 @@ async def test_mock_runs_are_flagged_at_the_top_and_real_runs_are_not():
 
 
 @pytest.mark.anyio
+async def test_empty_model_answers_are_called_out_in_the_report():
+    meta = make_meta()
+    cached = keyed(meta)
+    cached["B"] = cached["B"].model_copy(
+        update={"small": cached["B"].small.model_copy(update={"content": ""})}
+    )
+    data = await build(meta, cached)
+    assert data.empty_answers == {"소형 모델": 1}
+    assert "빈 응답이 있습니다 (소형 모델 1건)" in render_markdown(data)
+
+    clean = await build()
+    assert clean.empty_answers == {} and "빈 응답" not in render_markdown(clean)
+
+
+@pytest.mark.anyio
 async def test_a_mock_judge_alone_invalidates_only_the_judge_dependent_numbers():
     # The likely first real run: real models, but no Jev access yet.
     text = render_markdown(await build(make_meta(judge="mock:judge")))
