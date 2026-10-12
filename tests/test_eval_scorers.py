@@ -88,6 +88,47 @@ def test_choice_works_for_korean_labels():
     assert SCORER.score(it, "아니오") is False
 
 
+def test_hedging_between_the_offered_options_is_not_an_answer():
+    it = item("choice", ["positive"], options=["positive", "negative"])
+    assert SCORER.score(it, "Positive.") is True
+    for hedge in ("positive or negative", "Negative, positive", "positive/negative"):
+        assert SCORER.score(it, hedge) is False, hedge
+    # Only the opening words count, so a later mention does not turn a clear answer into a hedge.
+    assert SCORER.score(it, "positive because it is not negative at all") is True
+    assert SCORER.score(item("choice", ["positive"]), "positive or negative") is True  # no options
+
+
+def test_korean_labels_accept_particles_but_not_two_names_up_front():
+    it = item("choice", ["민수"], lang="ko", options=["민수", "지영", "철수", "영희"])
+    assert SCORER.score(it, "민수") is True
+    assert SCORER.score(it, "민수가 가장 큽니다.") is True
+    assert SCORER.score(it, "민수와 지영") is False
+    # Documented trade-off: a sentence that names a second option early is treated as a hedge.
+    assert SCORER.score(it, "민수는 지영보다 큽니다") is False
+    assert SCORER.score(it, "지영") is False
+
+
+def test_single_character_and_ascii_labels_must_match_exactly():
+    yes_no = item("choice", ["예", "네"], lang="ko", options=["예", "아니오"])
+    assert SCORER.score(yes_no, "예") is True
+    assert SCORER.score(yes_no, "예를 들어 보면") is False  # "예를" is not "예"
+    assert SCORER.score(item("choice", ["no"]), "not really") is False  # "not" is not "no"
+    assert SCORER.score(item("choice", ["no"]), "No, it is not.") is True
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"answer_type": "exact", "reference": ["x"], "options": ["x", "y"]},  # not a choice item
+        {"answer_type": "choice", "reference": ["x"], "options": ["x"]},  # needs two labels
+        {"answer_type": "choice", "reference": ["x"], "options": ["x", "x"]},  # two distinct labels
+    ],
+)
+def test_options_are_validated(bad):
+    with pytest.raises(ValidationError):
+        EvalItem(id="t", prompt="p", lang="en", category="math", difficulty="easy", **bad)
+
+
 def test_number_compares_numerically_with_tolerance_and_alternatives():
     it = item("number", ["21"])
     assert SCORER.score(it, "21.00") is True

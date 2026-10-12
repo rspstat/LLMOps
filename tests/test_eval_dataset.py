@@ -52,6 +52,37 @@ def test_reference_answer_scores_correct_and_junk_does_not(item):
         assert SCORER.score(item, junk) is False, f"{item.id}: {junk!r} scored as correct"
 
 
+@pytest.mark.parametrize("item", ITEMS, ids=lambda i: i.id)
+def test_repeating_the_prompt_is_never_a_correct_answer(item):
+    # Found with the mock provider, which echoes the prompt: 14 items used to "pass" because the
+    # reference appeared in the prompt itself, or the answer equalled an operand.
+    assert SCORER.score(item, item.prompt) is False
+    assert SCORER.score(item, "[mock-small] " + item.prompt[:80]) is False
+
+
+CHOICE_ITEMS = [i for i in ITEMS if i.answer_type == "choice"]
+
+
+@pytest.mark.parametrize("item", CHOICE_ITEMS, ids=lambda i: i.id)
+def test_listing_the_options_is_never_a_correct_answer(item):
+    for first in item.options:
+        for second in item.options:
+            if first == second:
+                continue
+            for joined in (f"{first} or {second}", f"{first}, {second}", f"{first}/{second}"):
+                assert SCORER.score(item, joined) is False, f"{item.id}: {joined!r}"
+    assert SCORER.score(item, " ".join(item.options)) is False
+
+
+@pytest.mark.parametrize("item", CHOICE_ITEMS, ids=lambda i: i.id)
+def test_choice_items_declare_the_options_their_prompt_offers(item):
+    options = [normalize(o) for o in item.options]
+    assert len(options) >= 2
+    assert any(normalize(r) in options for r in item.reference)  # the right answer is an option
+    prompt = normalize(item.prompt)
+    assert all(o in prompt for o in options), f"{item.id}: an option is not in the prompt"
+
+
 def test_no_prompt_is_blocked_by_the_default_input_guard_or_length_rule():
     guard = InputGuard()
     router = RuleRouter()

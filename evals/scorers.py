@@ -31,6 +31,23 @@ def extract_number(text: str) -> float | None:
     return float(matches[-1].replace(",", "")) if matches else None
 
 
+_HEDGE_WINDOW = 3  # words at the start of a choice answer that are checked for hedging
+
+
+def _label_matches(word: str, label: str) -> bool:
+    """`word` is `label`, or a Korean label followed by a particle or ending ("민수가").
+
+    Single characters stay exact ("예" must not match "예를"), as do ASCII labels ("no"/"not").
+    """
+    return word == label or (len(label) >= 2 and not label.isascii() and word.startswith(label))
+
+
+def _mentions_several(words: list[str], options: list[str]) -> bool:
+    labels = [normalize(o) for o in options]
+    found = {label for label in labels if any(_label_matches(w, label) for w in words)}
+    return len(found) >= 2
+
+
 @runtime_checkable
 class Scorer(Protocol):
     def score(self, item: EvalItem, answer: str) -> bool | None:
@@ -57,7 +74,12 @@ class RuleScorer:
             return got in refs
         if kind == "contains":
             return any(ref in got for ref in refs)
-        # choice: the whole answer, or its first word ("No, it is not." -> "no").
-        words = re.split(r"\W+", got)
-        first = next((w for w in words if w), "")
-        return got in refs or first in refs
+        # choice: the whole answer, or its first word ("No, it is not." -> "no"), unless the
+        # opening words name several of the offered options (a hedge).
+        words = [w for w in re.split(r"\W+", got) if w]
+        first = words[0] if words else ""
+        if item.options and _mentions_several(words[:_HEDGE_WINDOW], item.options):
+            return False
+        if got in refs or first in refs:
+            return True
+        return any(_label_matches(first, ref) for ref in refs)

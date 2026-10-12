@@ -28,6 +28,15 @@ class EvalItem(BaseModel):
     answer_type: AnswerType
     # Acceptable answers. Empty only for `open` items, which cannot be scored by rules.
     reference: list[str] = Field(default_factory=list)
+    # For `choice` items: every label the prompt offers (the right one and the distractors).
+    # An answer that names two of them up front ("positive or negative") is a hedge, not an answer.
+    options: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _options_only_for_choice(self) -> "EvalItem":
+        if self.options and (self.answer_type != "choice" or len(set(self.options)) < 2):
+            raise ValueError(f"{self.id}: options need a choice item and at least two labels")
+        return self
 
     @model_validator(mode="after")
     def _reference_fits_answer_type(self) -> "EvalItem":
