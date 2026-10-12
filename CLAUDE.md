@@ -48,6 +48,16 @@ ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 f
 ```
 
 - `--target jev`는 실제 라우팅 질문(easy/hard)을 Jev에 1회 보낸다. 아직 한 번도 실행하지 않았다(접근 권한·키 없음).
+
+```bash
+# 라우팅 평가 (evals/README.md)
+uv run python -m evals.run validate                         # 데이터셋 검사
+uv run python -m evals.run collect --name demo --limit 20   # 기본 mock, 호출 없음
+uv run python -m evals.run report  --name demo              # evals/reports/demo/report.md
+uv run python -m evals.run collect --name real --dry-run    # 실제 provider: 예상 호출 수·비용 상한만 출력
+# 실호출 수집 — 비용 발생. 내가 요청할 때만 실행한다 (ALLOW_LIVE_CALLS=1 과 --budget-usd 필수).
+ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0.25
+```
 - 라우팅 모드는 `ROUTER_MODE`(rules | hybrid | judge_only), 판정기는 `JUDGE_PROVIDER`(mock | jev). 기본은 `rules` + `mock`이라 외부 호출이 없다.
 
 - Windows PowerShell에서는 `$env:ALLOW_LIVE_CALLS = "1"; uv run python -m scripts.smoke_live --target slm`.
@@ -58,7 +68,7 @@ ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 f
 
 - 사소하지 않은 작업은 **구현 전에 계획을 먼저 제시**하고 승인을 받는다.
 - 한 번에 작은 단위로 진행하고, 변경 후에는 테스트·린트를 실제로 실행해 결과를 확인한다. 실패하면 숨기지 말고 원인과 함께 보고한다.
-- 현재 단계는 README 로드맵의 **2단계(라우팅 엔진 v1)까지 구현 완료, 다음은 3단계(평가 v1)**다. 로드맵 밖의 기능은 추가하지 않는다.
+- 현재 단계는 README 로드맵의 **3단계(평가 v1)까지 도구 구현 완료, 다음은 4단계(가드 고도화)**다. 단, 평가는 mock으로만 검증했고 **실제 모델·Jev 수치는 아직 없다**(키·접근 권한 대기). 로드맵 밖의 기능은 추가하지 않는다.
 - 외부 API(Jev, 상용 LLM)를 실제로 호출하면 비용이 든다. 테스트는 기본적으로 mock을 쓰고, 실제 호출은 내가 요청할 때만 한다.
 - 파인튜닝은 GPU 제약상 1B 이하 모델 위주로 설계한다.
 

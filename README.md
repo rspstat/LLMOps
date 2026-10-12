@@ -54,7 +54,7 @@ flowchart LR
 - [x] **0. 기반**: 레포 구조, 환경 변수, 게이트웨이 골격
 - [x] **1. 한 줄 관통**: 입력 가드 → 라우터 → LLM 호출 → trace 저장 (mock provider 기준으로 관통, 실제 모델 호출은 스모크 스크립트로 별도 확인 예정)
 - [x] **2. 라우팅 엔진 v1**: 규칙 + Jev + 모델 2종, 신뢰도 기반 승격 (mock 판정기로 구현·검증, Jev 어댑터는 실호출 미확인)
-- [ ] **3. 평가 v1**: 데이터셋, judge, 비용·지연·정확도 리포트
+- [x] **3. 평가 v1**: 데이터셋, judge, 비용·지연·정확도 리포트 (도구와 데이터셋 80개를 mock으로 검증, **실제 모델 수치는 아직 없음**)
 - [ ] **4. 가드 고도화**: 인젝션·PII 탐지, 공격 프롬프트 자동 생성, 방어율 측정
 - [ ] **5. 파인튜닝**: 라우팅/가드 분류기, 소형 judge (1B 이하 모델 위주)
 - [ ] **6. 벤치마크**: LLM 단독 vs 하이브리드, Jev vs 파인튜닝 분류기 vs LLM judge
@@ -100,7 +100,18 @@ uv run ruff check . && uv run ruff format --check .  # 린트
 
 `JUDGE_PROVIDER`의 기본값은 오프라인 mock(요청 길이만 보는 가짜)이라 키 없이 동작을 볼 수 있지만, 라우팅 품질의 근거는 아닙니다. 실제 Jev는 `JUDGE_PROVIDER=jev`와 `JEV_API_KEY`가 필요하며, 어댑터는 서드파티 문서를 기준으로 작성했고 아직 실제 호출로 확인하지 않았습니다. 판정 호출은 trace에 `judge` 이벤트(확률, 토큰, 비용, 지연, 정책 버전)로 남습니다. 정책 문구는 [docs/prompts/router-policy-v1.md](docs/prompts/router-policy-v1.md)에 있습니다.
 
-현재 구현 범위(로드맵 0~2단계): 규칙 기반 입력 가드 · 규칙/판정 하이브리드 라우터 · 비스트리밍 `/v1/chat/completions` · SQLite trace. 출력 가드, 스트리밍, 평가는 이후 단계입니다.
+### 평가 (3단계)
+
+라우팅 설정을 바꿨을 때 비용·지연·정확도가 어떻게 달라지는지 측정합니다. 판정기·소형 모델·상용 모델을 항목당 한 번씩만 호출해 캐시하고, 모드와 임계값(τ)을 바꾼 비교는 캐시를 재생해서 계산하므로 τ를 훑어도 추가 비용이 없습니다.
+
+```bash
+uv run python -m evals.run collect --name demo --limit 20   # 기본 mock, 키 없이 실행
+uv run python -m evals.run report  --name demo              # evals/reports/demo/report.md
+```
+
+데이터셋(영어·한국어 80개)은 AI가 작성했고 난이도 라벨은 검토 전입니다. mock으로 만든 리포트는 파이프라인이 동작한다는 것만 보여 주며 정확도·비용 수치에는 의미가 없습니다 (리포트 상단에 경고가 표시됩니다). 자세한 내용은 [evals/README.md](evals/README.md).
+
+현재 구현 범위(로드맵 0~3단계): 규칙 기반 입력 가드 · 규칙/판정 하이브리드 라우터 · 비스트리밍 `/v1/chat/completions` · SQLite trace · 라우팅 평가 도구. 출력 가드, 스트리밍은 이후 단계입니다.
 
 ## AI 활용 기록
 
