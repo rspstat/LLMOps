@@ -1,7 +1,7 @@
 import pytest
 
 from evals import run
-from evals.check import host_for_display
+from evals.check import host_for_display, url_for_display
 from gateway.settings import Settings
 
 SECRETS = {
@@ -151,16 +151,68 @@ def test_a_workspace_id_in_the_host_never_appears_in_the_check_output(tmp_path, 
     assert "url=https://*.ap-southeast-1.maas.aliyuncs.com" in text
 
 
-def test_valid_base_urls_pass_and_show_only_the_host(tmp_path, capsys):
+ALIBABA = "https://ws1.ap-southeast-1.maas.aliyuncs.com"
+
+
+def test_valid_base_urls_pass_and_show_the_masked_host_with_its_plain_path(tmp_path, capsys):
     env = (
-        LIVE_QWEN + "\nSLM_BASE_URL=https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
-        "\nFRONTIER_BASE_URL=https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+        LIVE_QWEN + f"\nSLM_BASE_URL={ALIBABA}/compatible-mode/v1"
+        f"\nFRONTIER_BASE_URL={ALIBABA}/compatible-mode/v1"
         "\nJEV_BASE_URL=https://api.typesafe.ai/v1/systemone\n"
     )
     code, text = check(tmp_path, capsys, env)
-    assert code == 0 and "url=https://*.ap-southeast-1.maas.aliyuncs.com" in text
-    assert "ws1" not in text.replace("ws1.ap", "")  # the id label is hidden
-    assert "compatible-mode" not in text  # paths (which may hold ids) are not shown
+    assert code == 0
+    assert "url=https://*.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1" in text
+    assert "ws1" not in text  # the workspace id label is hidden
+
+
+@pytest.mark.parametrize("path", ["", "/", "/v1", "/compatible-mode", "/compatible-mode/v2"])
+def test_an_alibaba_url_without_the_compatible_mode_path_is_a_problem(tmp_path, capsys, path):
+    # The reported case: the bare API host answers /chat/completions with an empty 404.
+    env = (
+        LIVE_QWEN
+        + f"\nSLM_BASE_URL={ALIBABA}{path}\nFRONTIER_BASE_URL={ALIBABA}/compatible-mode/v1\n"
+    )
+    code, text = check(tmp_path, capsys, env)
+    assert code == 1 and "SLM_BASE_URL 의 경로가 `/compatible-mode/v1` 로 끝나지 않습니다" in text
+    assert "FRONTIER_BASE_URL 의 경로" not in text
+
+
+@pytest.mark.parametrize("path", ["/compatible-mode/v1", "/compatible-mode/v1/"])
+def test_the_alibaba_compatible_mode_path_passes_with_or_without_a_trailing_slash(
+    tmp_path, capsys, path
+):
+    env = LIVE_QWEN + f"\nSLM_BASE_URL={ALIBABA}{path}\nFRONTIER_BASE_URL={ALIBABA}{path}\n"
+    assert check(tmp_path, capsys, env)[0] == 0
+
+
+def test_a_host_that_needs_no_path_is_not_flagged(tmp_path, capsys):
+    # DeepSeek is served from the bare host; only Alibaba hosts have the /compatible-mode rule.
+    env = (
+        LIVE_QWEN
+        + "\nSLM_BASE_URL=https://api.deepseek.com\nFRONTIER_BASE_URL=https://api.deepseek.com\n"
+    )
+    code, text = check(tmp_path, capsys, env)
+    assert code == 0 and "url=https://api.deepseek.com" in text
+
+
+@pytest.mark.parametrize(
+    ("url", "shown"),
+    [
+        ("https://api.openai.com/v1", "https://api.openai.com/v1"),
+        ("https://ws-id9.region.vendor.com/compatible-mode/v1/", "https://*.region.vendor.com/compatible-mode/v1/"),
+        ("https://api.test/v1?key=query-secret-1", "https://api.test/v1"),
+        ("https://user:pw-secret-2@api.test/v1", "https://api.test/v1"),
+        ("https://api.test/v1#frag-secret-3", "https://api.test/v1"),
+        ("https://api.test/has space/v1", "https://api.test"),
+        ("https://api.test", "https://api.test"),
+    ],
+)  # fmt: skip
+def test_url_display_keeps_a_plain_path_but_never_queries_credentials_or_odd_paths(url, shown):
+    result = url_for_display(url)
+    assert result == shown
+    for secret in ("query-secret-1", "pw-secret-2", "frag-secret-3"):
+        assert secret not in result
 
 
 def test_a_mock_model_is_not_blamed_for_its_unused_default_url(tmp_path, capsys):

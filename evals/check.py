@@ -86,7 +86,35 @@ def host_for_display(url: str) -> str:
     return f"{parts.scheme}://{host}" + (f":{parts.port}" if parts.port else "")
 
 
-_host = host_for_display
+_SAFE_PATH = re.compile(r"^[A-Za-z0-9._~/-]{0,80}$")
+
+
+def url_for_display(url: str) -> str:
+    """host_for_display plus the path, when the path is plain. Queries, fragments and credentials
+    (which could carry a token) are never shown; an unusual path is left out entirely."""
+    shown = host_for_display(url)
+    if not _valid_url(url):
+        return shown
+    path = urlsplit(url.strip()).path
+    return shown + (path if path and _SAFE_PATH.match(path) else "")
+
+
+_host = url_for_display
+
+
+def _alibaba_path_problem(name: str, url: str) -> str | None:
+    """Alibaba's OpenAI-compatible endpoint lives under /compatible-mode/v1; the bare API host
+    answers every other path with an empty 404."""
+    if not _valid_url(url):
+        return None
+    parts = urlsplit(url.strip())
+    if parts.hostname and parts.hostname.endswith(".aliyuncs.com"):
+        if not parts.path.rstrip("/").endswith("/compatible-mode/v1"):
+            return (
+                f"{name} 의 경로가 `/compatible-mode/v1` 로 끝나지 않습니다. Alibaba 주소는 "
+                "`https://<API Host>/compatible-mode/v1` 형식이어야 하고, 호스트만 쓰면 404가 납니다."
+            )
+    return None
 
 
 def _bad_url_problem(name: str, url: str) -> str:
@@ -207,6 +235,8 @@ def diagnose(
         )
         if not _valid_url(s.slm_base_url):
             problems.append(_bad_url_problem("SLM_BASE_URL", s.slm_base_url))
+        elif path_problem := _alibaba_path_problem("SLM_BASE_URL", s.slm_base_url):
+            problems.append(path_problem)
         if hosted and not priced:
             problems.append(
                 "소형 모델이 호스팅 API인데 SMALL_PRICE_IN/OUT_PER_MTOK 단가가 0 입니다 "
@@ -229,6 +259,8 @@ def diagnose(
         )
         if not _valid_url(s.frontier_base_url):
             problems.append(_bad_url_problem("FRONTIER_BASE_URL", s.frontier_base_url))
+        elif path_problem := _alibaba_path_problem("FRONTIER_BASE_URL", s.frontier_base_url):
+            problems.append(path_problem)
         if not priced:
             problems.append(
                 "FRONTIER_PRICE_IN/OUT_PER_MTOK 단가가 0 입니다 (제공사 가격표를 보고 채우세요)."

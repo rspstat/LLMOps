@@ -19,7 +19,7 @@ from collections.abc import Mapping, Sequence
 
 import httpx
 
-from evals.check import host_for_display
+from evals.check import url_for_display
 from gateway.settings import Settings
 from providers.base import ChatMessage, Provider, ProviderError, ProviderRequest
 from providers.jev import JevProvider
@@ -36,7 +36,7 @@ OUTPUT_LIMIT = 200
 EXIT_OK, EXIT_CALL_FAILED, EXIT_REFUSED = 0, 1, 2
 
 
-_host = host_for_display  # hides an account/workspace id in the first label of the host
+_host = url_for_display  # hides an account id in the host; shows a plain path, never a query
 
 
 def build_provider(
