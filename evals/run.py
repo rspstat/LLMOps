@@ -14,6 +14,7 @@ refuses to run unless ALLOW_LIVE_CALLS=1 is set in the shell AND --budget-usd is
 import argparse
 import asyncio
 import hashlib
+import json
 import os
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -22,6 +23,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 from pydantic import ValidationError
+from pydantic_settings.exceptions import SettingsError
 
 from evals.cache import CacheMeta, EvalCache
 from evals.check import describe_load_errors, describe_raw_values, diagnose
@@ -52,17 +54,31 @@ def is_live(settings: Settings) -> bool:
     )
 
 
+def _extra_tag(extra_body: dict) -> str:
+    """Part of a model's identity: extra request fields change its answers, so they change the
+    cache key (switching thinking on or off must not reuse the other mode's answers)."""
+    if not extra_body:
+        return ""
+    canonical = json.dumps(extra_body, sort_keys=True, ensure_ascii=False)
+    return "+extra:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:8]
+
+
 def build_targets(settings: Settings) -> tuple[ModelTarget, ModelTarget, JudgeTarget]:
     registry = build_registry(settings)
     small_id = (
         "mock:small"
         if settings.small_provider == "mock"
-        else f"slm:{settings.slm_model}@{settings.slm_base_url}"
+        else (
+            f"slm:{settings.slm_model}@{settings.slm_base_url}{_extra_tag(settings.slm_extra_body)}"
+        )
     )
     frontier_id = (
         "mock:frontier"
         if settings.frontier_provider == "mock"
-        else f"openai:{settings.frontier_model}@{settings.frontier_base_url}"
+        else (
+            f"openai:{settings.frontier_model}@{settings.frontier_base_url}"
+            f"{_extra_tag(settings.frontier_extra_body)}"
+        )
     )
     judge_id = (
         "mock:judge"
@@ -125,7 +141,7 @@ def _cmd_check(args: argparse.Namespace, settings: Settings | None) -> int:
     print(f"{env_path}: {len(defined)}개 변수 정의됨" if env_path.exists() else f"{env_path}: 없음")
     try:
         settings = settings or Settings(_env_file=env_path)
-    except ValidationError as exc:
+    except (ValidationError, SettingsError) as exc:
         errors = describe_load_errors(exc)
         print(f"\n설정을 읽을 수 없습니다. 고쳐야 할 것 {len(errors)}개:")
         for number, line in enumerate(errors, start=1):

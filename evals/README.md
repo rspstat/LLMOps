@@ -60,6 +60,28 @@ JEV_MODEL=<모델명>
 JEV_PRICE_IN_PER_MTOK=0.042       # 회사 발표 단가. 가격표를 확인하세요
 ```
 
+**Qwen(Alibaba Cloud Model Studio)으로 구성할 때**: 키는 `Model Studio → Create API Key`(싱가포르 리전)에서 만들고, 키와 함께 표시되는 API Host를 복사합니다. 키는 만든 리전에서만 동작합니다. 소형·상용이 같은 키와 엔드포인트를 쓰므로 `OPENAI_API_KEY` 칸(상용 모델용 일반 키 칸)에도 같은 키를 넣습니다. Qwen 최신 모델은 추론이 기본으로 켜져 있어 `*_EXTRA_BODY`로 꺼야 합니다.
+
+```
+SLM_BASE_URL=<API Host>/compatible-mode/v1
+SLM_MODEL=qwen3.7-flash
+SLM_API_KEY=<Alibaba 키>
+SLM_EXTRA_BODY={"enable_thinking": false}
+SMALL_PRICE_IN_PER_MTOK=0.03
+SMALL_PRICE_OUT_PER_MTOK=0.13
+
+FRONTIER_BASE_URL=<API Host>/compatible-mode/v1
+FRONTIER_MODEL=qwen3.8-max
+OPENAI_API_KEY=<같은 Alibaba 키>
+FRONTIER_EXTRA_BODY={"enable_thinking": false}
+FRONTIER_PRICE_IN_PER_MTOK=2.00
+FRONTIER_PRICE_OUT_PER_MTOK=6.00
+```
+
+- 추가 필드 없이 쓰려면 `qwen-flash`(추론 기본 꺼짐)와 `qwen-max`(비추론 전용)로 바꾸고 `*_EXTRA_BODY`를 비웁니다. 단가는 각각 0.05 / 0.40, 1.60 / 6.40입니다.
+- `qwen3.7-flash`의 0.03 / 0.13은 입력 32K 토큰 이하 구간 단가입니다(이 평가의 프롬프트는 모두 해당).
+- 엔드포인트 주소가 맞는지는 아래 1번 어댑터 확인이 알려 줍니다(틀리면 404/401과 응답 본문 앞부분이 출력됩니다).
+
 실행 순서 (PowerShell):
 
 ```powershell

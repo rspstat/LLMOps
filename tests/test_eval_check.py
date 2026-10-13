@@ -182,6 +182,30 @@ def test_when_the_file_cannot_load_the_non_secret_values_are_still_shown(tmp_pat
     assert_no_secret_printed(text)
 
 
+def test_extra_body_fields_are_listed_by_name_only(tmp_path, capsys):
+    env = "\n".join(
+        [
+            "SMALL_PROVIDER=slm",
+            "SLM_MODEL=qwen3.7-flash",
+            'SLM_EXTRA_BODY={"enable_thinking": false, "note": "extra-secret-xyz"}',
+        ]
+    )
+    code, text = check(tmp_path, capsys, env)
+    assert code == 0 and "추가 필드: enable_thinking, note" in text
+    assert "extra-secret-xyz" not in text
+
+
+def test_broken_json_in_an_extra_body_variable_is_explained_without_echoing_it(tmp_path, capsys):
+    code, text = check(tmp_path, capsys, 'SLM_EXTRA_BODY={"token": "json-secret-xyz\n')
+    assert code == 1 and "SLM_EXTRA_BODY: JSON 형식이 아닙니다" in text
+    assert "json-secret-xyz" not in text and "SLM_EXTRA_BODY = 설정됨" in text
+
+
+def test_extra_body_with_an_owned_field_is_reported(tmp_path, capsys):
+    code, text = check(tmp_path, capsys, 'SLM_EXTRA_BODY={"max_tokens": 5}\n')
+    assert code == 1 and "SLM_EXTRA_BODY may not set max_tokens" in text
+
+
 def test_a_value_outside_the_allowed_choices_is_explained(tmp_path, capsys):
     code, text = check(tmp_path, capsys, "SMALL_PROVIDER=openai\n")
     assert (

@@ -128,6 +128,32 @@ def test_slm_target_sends_the_key_only_when_one_is_configured(key, expected, cap
     assert "slm-secret-key" not in out.out + out.err
 
 
+@pytest.mark.parametrize(
+    ("target", "field"), [("slm", "slm_extra_body"), ("frontier", "frontier_extra_body")]
+)
+def test_smoke_targets_send_the_configured_extra_body(target, field, capsys):
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "hi"}}], "usage": {}})
+
+    settings = Settings(
+        _env_file=None,
+        slm_model="tiny",
+        frontier_model="big",
+        openai_api_key="k",
+        **{field: {"enable_thinking": False}},
+    )
+    code = smoke_live.main(
+        ["--target", target],
+        {"ALLOW_LIVE_CALLS": "1"},
+        settings=settings,
+        transport=httpx.MockTransport(handler),
+    )
+    assert code == smoke_live.EXIT_OK and seen["enable_thinking"] is False
+
+
 JEV_SECRET = "jev-test-secret-value"
 
 

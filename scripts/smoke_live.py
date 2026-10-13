@@ -55,6 +55,7 @@ def build_provider(
             api_key=settings.slm_api_key.get_secret_value() or None,
             timeout_s=TIMEOUT_S,
             transport=transport,
+            extra_body=settings.slm_extra_body,
         )
         return provider, f"slm {_host(settings.slm_base_url)} model={settings.slm_model}"
 
@@ -70,6 +71,7 @@ def build_provider(
         api_key=key,
         timeout_s=TIMEOUT_S,
         transport=transport,
+        extra_body=settings.frontier_extra_body,
     )
     return provider, f"frontier {_host(settings.frontier_base_url)} model={settings.frontier_model}"
 

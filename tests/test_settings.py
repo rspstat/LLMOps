@@ -64,6 +64,32 @@ def test_text_in_a_numeric_variable_is_still_an_error(tmp_path):
         Settings(_env_file=env)
 
 
+def test_extra_body_is_read_as_json_and_blank_means_none(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text(
+        'SLM_EXTRA_BODY={"enable_thinking": false, "thinking_budget": 0}\nFRONTIER_EXTRA_BODY=\n',
+        encoding="utf-8",
+    )
+    settings = Settings(_env_file=env)
+    assert settings.slm_extra_body == {"enable_thinking": False, "thinking_budget": 0}
+    assert settings.frontier_extra_body == {}
+    assert Settings(_env_file=None).slm_extra_body == {}
+
+
+@pytest.mark.parametrize("name", ["slm_extra_body", "frontier_extra_body"])
+def test_extra_body_may_not_set_fields_the_adapter_owns(name):
+    with pytest.raises(ValidationError, match=name.upper()):
+        Settings(_env_file=None, **{name: {"max_tokens": 5, "enable_thinking": False}})
+
+
+def test_invalid_json_in_an_extra_body_variable_is_an_error_without_echoing_it(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text('SLM_EXTRA_BODY={"token": "json-secret-xyz\n', encoding="utf-8")
+    with pytest.raises(ValueError) as info:
+        Settings(_env_file=env)
+    assert "slm_extra_body" in str(info.value) and "json-secret-xyz" not in str(info.value)
+
+
 def test_slm_api_key_is_optional_and_masked():
     assert Settings(_env_file=None).slm_api_key.get_secret_value() == ""
     hosted = Settings(_env_file=None, small_provider="slm", slm_model="m", slm_api_key="slm-secret")

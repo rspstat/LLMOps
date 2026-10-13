@@ -206,6 +206,22 @@ def test_collect_warns_about_empty_model_answers(tmp_path, monkeypatch, capsys):
     assert "WARNING: 2 item(s) got an EMPTY answer" in err and "reasoning model" in err
 
 
+def test_extra_body_is_part_of_the_cache_identity_so_thinking_modes_never_share_answers():
+    def identities(**overrides):
+        small, frontier, _ = run.build_targets(
+            Settings(_env_file=None, **{**HOSTED_SMALL, **PAID, **overrides})
+        )
+        return small.identity, frontier.identity
+
+    plain = identities()
+    off = identities(slm_extra_body={"enable_thinking": False})
+    on = identities(slm_extra_body={"enable_thinking": True})
+    assert plain[0] != off[0] != on[0] and off[0] != on[0]
+    assert plain[1] == off[1]  # the frontier model was not touched
+    assert off == identities(slm_extra_body={"enable_thinking": False})  # deterministic
+    assert identities(frontier_extra_body={"enable_thinking": False})[1] != plain[1]
+
+
 def test_report_needs_collected_data(tmp_path, capsys):
     assert cli(["report", "--name", "nothing"], tmp_path) == 1
     assert "Run `collect` first" in capsys.readouterr().err

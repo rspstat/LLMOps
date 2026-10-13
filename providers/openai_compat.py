@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any
 
 import httpx
@@ -5,6 +6,11 @@ import httpx
 from providers.base import ProviderError, ProviderRequest, ProviderResponse, estimate_tokens
 
 _ERROR_BODY_LIMIT = 200
+
+# Fields the adapter decides itself; `extra_body` may not set them.
+RESERVED_BODY_KEYS = frozenset(
+    {"model", "messages", "max_tokens", "max_completion_tokens", "temperature", "stream"}
+)
 
 
 class OpenAICompatProvider:
@@ -18,6 +24,10 @@ class OpenAICompatProvider:
     parameter and is not billed, so on exactly that signal the request is re-sent once per
     problem with the other form, and the choice is remembered for later calls. Every other error
     (401, 429, 5xx, a 400 that names neither parameter) is raised immediately and never re-sent.
+
+    `extra_body` carries vendor-specific request fields that the OpenAI protocol has no slot for,
+    e.g. `{"enable_thinking": false}` for Qwen hybrid models, which otherwise spend a small
+    `max_tokens` on hidden reasoning and answer with nothing.
     """
 
     _MAX_ADAPTATIONS = 2
@@ -31,18 +41,24 @@ class OpenAICompatProvider:
         api_key: str | None = None,
         timeout_s: float = 30.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        extra_body: Mapping[str, Any] | None = None,
     ) -> None:
+        reserved = RESERVED_BODY_KEYS & set(extra_body or {})
+        if reserved:
+            raise ValueError(f"extra_body may not set {', '.join(sorted(reserved))}")
         self.name = name
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._model = model
         self._api_key = api_key
         self._timeout_s = timeout_s
         self._transport = transport
+        self._extra_body = dict(extra_body or {})
         self._token_param = "max_tokens"
         self._send_temperature = True
 
     def _payload(self, request: ProviderRequest) -> dict[str, Any]:
         payload: dict[str, Any] = {
+            **self._extra_body,
             "model": self._model,
             "messages": [{"role": m.role, "content": m.content} for m in request.messages],
             self._token_param: request.max_tokens,

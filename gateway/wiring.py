@@ -20,6 +20,7 @@ def build_registry(settings: Settings) -> ProviderRegistry:
             model=settings.slm_model,
             api_key=settings.slm_api_key.get_secret_value() or None,
             timeout_s=settings.provider_timeout_s,
+            extra_body=settings.slm_extra_body,
         )
     else:
         small = MockProvider("mock-small")
@@ -31,6 +32,7 @@ def build_registry(settings: Settings) -> ProviderRegistry:
             model=settings.frontier_model,
             api_key=settings.openai_api_key.get_secret_value(),
             timeout_s=settings.provider_timeout_s,
+            extra_body=settings.frontier_extra_body,
         )
     else:
         frontier = MockProvider("mock-frontier")

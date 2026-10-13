@@ -209,6 +209,48 @@ async def test_a_server_that_keeps_complaining_is_given_up_on():
 
 
 @pytest.mark.anyio
+async def test_extra_body_fields_are_sent_with_every_request_next_to_the_core_fields():
+    bodies: list[dict] = []
+    provider = make_provider(
+        rejecting([], bodies), extra_body={"enable_thinking": False, "seed": 7}
+    )
+    await provider.complete(REQUEST)
+    await provider.complete(REQUEST)
+
+    for body in bodies:
+        assert body["enable_thinking"] is False and body["seed"] == 7
+        assert body["model"] == "tiny" and body["max_tokens"] == 16 and body["temperature"] == 0.2
+        assert body["messages"][-1] == {"role": "user", "content": "hi there"}
+
+
+@pytest.mark.anyio
+async def test_extra_body_survives_the_parameter_adaptation_resend():
+    bodies: list[dict] = []
+    provider = make_provider(
+        rejecting([MAX_TOKENS_REJECTED], bodies), extra_body={"enable_thinking": False}
+    )
+    await provider.complete(REQUEST)
+    assert len(bodies) == 2 and all(b["enable_thinking"] is False for b in bodies)
+    assert "max_completion_tokens" in bodies[1]
+
+
+@pytest.mark.parametrize(
+    "reserved",
+    ["model", "messages", "max_tokens", "max_completion_tokens", "temperature", "stream"],
+)
+def test_extra_body_cannot_override_fields_the_adapter_owns(reserved):
+    with pytest.raises(ValueError, match=reserved):
+        make_provider(lambda r: httpx.Response(200, json=OK_BODY), extra_body={reserved: 1})
+
+
+@pytest.mark.anyio
+async def test_no_extra_body_means_no_additional_fields():
+    bodies: list[dict] = []
+    await make_provider(rejecting([], bodies)).complete(REQUEST)
+    assert set(bodies[0]) == {"model", "messages", "max_tokens", "temperature"}
+
+
+@pytest.mark.anyio
 async def test_no_temperature_is_never_added_or_asked_about():
     bodies: list[dict] = []
     bare = ProviderRequest(messages=(ChatMessage("user", "hi"),), max_tokens=8)

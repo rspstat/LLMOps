@@ -5,10 +5,12 @@ nothing is ever called and nothing says why. Only variable names, on/off states 
 printed; values of keys are never read into the output.
 """
 
+import re
 from collections.abc import Mapping
 from urllib.parse import urlsplit
 
 from pydantic import ValidationError
+from pydantic_settings.exceptions import SettingsError
 
 from gateway.settings import Settings
 
@@ -27,6 +29,11 @@ def _filled(value: str | None) -> bool:
     return bool((value or "").strip())
 
 
+def _extra_note(extra_body: Mapping[str, object]) -> str:
+    """Names of the extra request fields, never their values."""
+    return f"  추가 필드: {', '.join(sorted(extra_body))}" if extra_body else ""
+
+
 _NUMBER_ERRORS = {"float_parsing", "int_parsing", "float_type", "int_type"}
 
 # What can be shown from the raw file when it does not load: plain choices and model names,
@@ -42,6 +49,7 @@ _SHOWN_AS_IS = (
 )
 _URLS = ("SLM_BASE_URL", "FRONTIER_BASE_URL", "JEV_BASE_URL")
 _KEYS = ("SLM_API_KEY", "OPENAI_API_KEY", "JEV_API_KEY", "GATEWAY_API_KEY")
+_JSON_FIELDS = ("SLM_EXTRA_BODY", "FRONTIER_EXTRA_BODY")
 _PRICES = (
     "SMALL_PRICE_IN_PER_MTOK",
     "SMALL_PRICE_OUT_PER_MTOK",
@@ -69,11 +77,17 @@ def describe_raw_values(defined: Mapping[str, str | None]) -> list[str]:
         lines.append(f"{name} = {shown}")
     for name in _KEYS:
         lines.append(f"{name} = {'채워짐' if _filled(defined.get(name)) else '(비어 있음)'}")
+    for name in _JSON_FIELDS:  # only whether it is set; the JSON itself may carry anything
+        lines.append(f"{name} = {'설정됨' if _filled(defined.get(name)) else '(비어 있음)'}")
     return lines
 
 
-def describe_load_errors(exc: ValidationError) -> list[str]:
+def describe_load_errors(exc: ValidationError | SettingsError) -> list[str]:
     """One friendly line per bad setting, naming the .env variable. Values are never included."""
+    if isinstance(exc, SettingsError):  # e.g. a JSON variable that is not valid JSON
+        field = re.search(r'field "([^"]+)"', str(exc))
+        name = field.group(1).upper() if field else "(알 수 없음)"
+        return [f'{name}: JSON 형식이 아닙니다. 예: {name}={{"enable_thinking": false}}']
     lines = []
     for err in exc.errors(include_input=False, include_url=False, include_context=False):
         name = ".".join(str(part) for part in err["loc"]).upper()
@@ -116,7 +130,10 @@ def diagnose(
         hosted = bool(s.slm_api_key.get_secret_value())
         priced = s.small_price_in_per_mtok > 0 or s.small_price_out_per_mtok > 0
         kind = "호스팅 API (키 있음)" if hosted else "자체 서빙 (키 없음, 무료로 간주)"
-        out.append(f"소형(small)   : slm  model={s.slm_model}  url={_host(s.slm_base_url)}  {kind}")
+        out.append(
+            f"소형(small)   : slm  model={s.slm_model}  url={_host(s.slm_base_url)}  {kind}"
+            f"{_extra_note(s.slm_extra_body)}"
+        )
         if hosted and not priced:
             problems.append(
                 "소형 모델이 호스팅 API인데 SMALL_PRICE_IN/OUT_PER_MTOK 단가가 0 입니다 "
@@ -135,6 +152,7 @@ def diagnose(
         priced = s.frontier_price_in_per_mtok > 0 or s.frontier_price_out_per_mtok > 0
         out.append(
             f"상용(frontier): openai  model={s.frontier_model}  url={_host(s.frontier_base_url)}  키 있음"
+            f"{_extra_note(s.frontier_extra_body)}"
         )
         if not priced:
             problems.append(

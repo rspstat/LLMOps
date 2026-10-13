@@ -1,8 +1,9 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from providers.openai_compat import RESERVED_BODY_KEYS
 from router.rule_router import DEFAULT_FRONTIER_KEYWORDS
 
 
@@ -66,6 +67,10 @@ class Settings(BaseSettings):
     frontier_base_url: str = "https://api.openai.com/v1"
     frontier_model: str = ""
     openai_api_key: SecretStr = SecretStr("")
+    # Vendor-specific JSON fields added to every request of that model, e.g.
+    # {"enable_thinking": false} for Qwen. Fields the adapter owns (model, messages) are refused.
+    slm_extra_body: dict[str, Any] = Field(default_factory=dict)
+    frontier_extra_body: dict[str, Any] = Field(default_factory=dict)
 
     # USD per 1M tokens, per route (0 for mock / self-hosted).
     small_price_in_per_mtok: float = 0.0
@@ -84,4 +89,11 @@ class Settings(BaseSettings):
                 raise ValueError("OPENAI_API_KEY is required when FRONTIER_PROVIDER=openai")
         if self.judge_provider == "jev" and not self.jev_api_key.get_secret_value():
             raise ValueError("JEV_API_KEY is required when JUDGE_PROVIDER=jev")
+        for name, extra in (
+            ("SLM_EXTRA_BODY", self.slm_extra_body),
+            ("FRONTIER_EXTRA_BODY", self.frontier_extra_body),
+        ):
+            reserved = RESERVED_BODY_KEYS & set(extra)
+            if reserved:
+                raise ValueError(f"{name} may not set {', '.join(sorted(reserved))}")
         return self
