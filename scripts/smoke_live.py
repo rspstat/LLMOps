@@ -16,10 +16,10 @@ import asyncio
 import os
 import sys
 from collections.abc import Mapping, Sequence
-from urllib.parse import urlsplit
 
 import httpx
 
+from evals.check import host_for_display
 from gateway.settings import Settings
 from providers.base import ChatMessage, Provider, ProviderError, ProviderRequest
 from providers.jev import JevProvider
@@ -36,9 +36,7 @@ OUTPUT_LIMIT = 200
 EXIT_OK, EXIT_CALL_FAILED, EXIT_REFUSED = 0, 1, 2
 
 
-def _host(url: str) -> str:
-    parts = urlsplit(url)
-    return f"{parts.scheme}://{parts.hostname}" + (f":{parts.port}" if parts.port else "")
+_host = host_for_display  # hides an account/workspace id in the first label of the host
 
 
 def build_provider(

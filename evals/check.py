@@ -5,6 +5,7 @@ nothing is ever called and nothing says why. Only variable names, on/off states 
 printed; values of keys are never read into the output.
 """
 
+import ipaddress
 import re
 from collections.abc import Mapping
 from urllib.parse import urlsplit
@@ -66,11 +67,26 @@ def url_problem_reason(url: str) -> str:
     return "; ".join(reasons) or "형식을 해석할 수 없음"
 
 
-def _host(url: str) -> str:
+def host_for_display(url: str) -> str:
+    """scheme://host[:port] for printing. A leading label is hidden when the host has more than
+    three labels (`ws-<id>.region.vendor.com` -> `*.region.vendor.com`): that label is usually an
+    account or workspace id. Plain hosts (`api.openai.com`, `localhost`, IPs) are shown whole."""
     if not _valid_url(url):
         return "(URL 형식이 아님)"
     parts = urlsplit(url.strip())
-    return f"{parts.scheme}://{parts.hostname}" + (f":{parts.port}" if parts.port else "")
+    host = parts.hostname
+    try:
+        ipaddress.ip_address(host)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+    labels = host.split(".")
+    if not is_ip and len(labels) > 3:
+        host = "*." + ".".join(labels[1:])
+    return f"{parts.scheme}://{host}" + (f":{parts.port}" if parts.port else "")
+
+
+_host = host_for_display
 
 
 def _bad_url_problem(name: str, url: str) -> str:

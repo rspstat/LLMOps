@@ -1,6 +1,7 @@
 import pytest
 
 from evals import run
+from evals.check import host_for_display
 from gateway.settings import Settings
 
 SECRETS = {
@@ -124,6 +125,32 @@ def test_a_host_with_an_underscore_is_accepted(tmp_path, capsys):
     assert code == 0 and "url=https://ws_1.example.test" in text
 
 
+@pytest.mark.parametrize(
+    ("url", "shown"),
+    [
+        ("https://ws-secretid123.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+         "https://*.ap-southeast-1.maas.aliyuncs.com"),
+        ("https://api.openai.com/v1", "https://api.openai.com"),
+        ("https://generativelanguage.googleapis.com/v1beta/openai/",
+         "https://generativelanguage.googleapis.com"),
+        ("http://localhost:8001/v1", "http://localhost:8001"),
+        ("http://127.0.0.1:11434/v1", "http://127.0.0.1:11434"),
+        ("https://a.b.example.test:8443/x", "https://*.b.example.test:8443"),
+    ],
+)  # fmt: skip
+def test_host_display_hides_an_account_id_label_but_keeps_ordinary_hosts(url, shown):
+    assert host_for_display(url) == shown
+    assert "secretid123" not in host_for_display(url)
+
+
+def test_a_workspace_id_in_the_host_never_appears_in_the_check_output(tmp_path, capsys):
+    url = "https://ws-secretid123.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+    env = LIVE_QWEN + f"\nSLM_BASE_URL={url}\nFRONTIER_BASE_URL={url}\n"
+    code, text = check(tmp_path, capsys, env)
+    assert code == 0 and "secretid123" not in text
+    assert "url=https://*.ap-southeast-1.maas.aliyuncs.com" in text
+
+
 def test_valid_base_urls_pass_and_show_only_the_host(tmp_path, capsys):
     env = (
         LIVE_QWEN + "\nSLM_BASE_URL=https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
@@ -131,7 +158,8 @@ def test_valid_base_urls_pass_and_show_only_the_host(tmp_path, capsys):
         "\nJEV_BASE_URL=https://api.typesafe.ai/v1/systemone\n"
     )
     code, text = check(tmp_path, capsys, env)
-    assert code == 0 and "url=https://ws1.ap-southeast-1.maas.aliyuncs.com" in text
+    assert code == 0 and "url=https://*.ap-southeast-1.maas.aliyuncs.com" in text
+    assert "ws1" not in text.replace("ws1.ap", "")  # the id label is hidden
     assert "compatible-mode" not in text  # paths (which may hold ids) are not shown
 
 
