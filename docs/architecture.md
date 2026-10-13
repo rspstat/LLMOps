@@ -13,7 +13,7 @@
 | 0 | 요청 ID | 서버가 `request_id` 생성, 응답 헤더 `X-Request-ID`로 반환. 클라이언트가 보낸 `X-Request-ID`는 안전한 값일 때만 `client_request_id`로 trace에 기록 | 항상 서버 생성 (trace 키 충돌·위조 방지) |
 | 1 | 입력 가드 | 모든 메시지 본문 → `allow` / `block` + 사유 + 점수 | 400 `input_blocked`. 응답에는 범주만(`prompt_injection` 등), 세부 규칙은 trace에만 |
 | 2 | 라우터 (+ 판정기) | 사용자 메시지 → `small` / `frontier` + 사유 + 신뢰도. 판정기를 불렀다면 `judge` 이벤트가 `router` 이벤트 바로 앞에 기록됨 | 규칙 hit이면 판정기를 부르지 않고 확정. 아니면 판정 → 임계값 승격(§3). 판정이 실패하면 규칙 결과로 대체하고 사유를 trace에 기록 |
-| 3 | provider 호출 | 라우트에 매핑된 provider | `ProviderError`면 오프라인 fallback으로 1회 재시도(trace에 두 시도 모두 기록). 둘 다 실패하면 502 `provider_unavailable` |
+| 3 | provider 호출 | 라우트에 매핑된 provider | `ProviderError`면 **다른 경로의 실제 모델**로 대체(소형→상용, 상용→소형)하고 시도마다 trace에 기록. 모두 실패하면 502 `provider_unavailable`. 응답 헤더 `X-LLMOps-Route` / `X-LLMOps-Fallback` / `X-LLMOps-Route-Reason` / `X-LLMOps-P-Easy`로 결정을 알림(사유는 `:` 앞 범주만, 비ASCII면 생략) |
 | 4 | trace 저장 | 요청 단위로 모아 한 트랜잭션으로 기록 | 저장 실패는 로그만 남기고 응답은 정상 반환 |
 
 - `max_tokens`는 `MAX_OUTPUT_TOKENS`로 상한을 둔다. 요청의 `model` 필드는 받지만 라우터가 결정한다.
@@ -28,7 +28,7 @@
 - 실패는 모두 `ProviderError`로 통일(네트워크, HTTP 오류, 잘못된 응답). 상세 오류 본문은 200자까지만 담고 키는 포함하지 않는다.
 - 지연 시간은 호출하는 쪽(파이프라인)이 시도마다 잰다. provider가 직접 보고하지 않는다.
 - 구현: `MockProvider`(결정적 echo, 장애 주입 가능), `OpenAICompatProvider`(vLLM·OpenAI 등 `/chat/completions` 호환 서버). Anthropic·Google 네이티브 API와 Jev는 같은 프로토콜로 이후 추가.
-- `ProviderRegistry`: 라우트 이름 → provider, 그리고 항상 오프라인인 fallback.
+- `ProviderRegistry`: 라우트 이름 → provider. `failover_chain(route)`가 고른 provider → 다른 경로의 provider → (있다면) 명시적 최후 provider 순으로 돌려준다. 같은 객체는 한 번만. 운영 wiring은 최후 provider를 두지 않는다.
 - 기본 provider는 mock이다. 실제 provider는 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`를 명시적으로 바꿔야만 켜진다.
 
 ### 판정 provider (`providers/decision.py`)
@@ -82,7 +82,7 @@
 | `confidence` | DOUBLE PRECISION | guard는 위험 점수(규칙은 0 또는 1), judge는 판정기의 `confidence`, router는 규칙 신뢰도 또는 판정 시 `p(easy)` |
 | `model` | TEXT | 실제 응답한 모델 (judge·provider 단계) |
 | `prompt_tokens`, `completion_tokens` | INTEGER | judge에서는 입력·출력 토큰. 서버가 `usage`를 주지 않으면 추정값 |
-| `cost_usd` | DOUBLE PRECISION | 토큰 × 단가(설정; 라우트별, 판정기는 `JEV_PRICE_*`). fallback·mock은 0 |
+| `cost_usd` | DOUBLE PRECISION | 토큰 × 단가(설정; 라우트별, 판정기는 `JEV_PRICE_*`). 대신 답한 모델은 그 모델 라우트의 단가로 계산. mock은 단가를 0으로 둔 경우 0 |
 | `latency_ms` | INTEGER | 단계별 소요 시간. `router`의 값은 판정기 호출을 포함한 라우팅 전체 |
 | `detail_json` | TEXT | 사유, provider 이름, fallback 여부, 오류 요약, `client_request_id`, 입력 길이·해시, 판정 시 `probabilities`·`policy_version`·`threshold`·`p_easy`·`rule_hint` 등 |
 | `created_at` | TEXT | ISO-8601 UTC |
@@ -160,7 +160,7 @@
 | 2026-10-13 | Python 3.12를 uv로 고정 (`.python-version`, `requires-python >=3.11`, `uv.lock` 커밋) | 재현 가능한 환경, 시스템 Python 혼재(msys64/3.14) 회피 |
 | 2026-10-13 | 기본 provider는 mock, trace에 프롬프트 본문은 기본 미저장(길이·해시만) | 실수로 인한 과금 방지, Public 레포와 개인정보 보호 |
 | 2026-10-13 | 요청 ID는 항상 서버가 생성하고, 클라이언트의 `X-Request-ID`는 안전한 값만 `client_request_id`로 trace에 기록 | trace PK가 요청 ID라서, 클라이언트 값을 그대로 쓰면 재사용 시 저장 실패·타 요청 trace 오염이 가능. 구현 중 발견해 계획(수용/생성)에서 변경 |
-| 2026-10-13 | provider 장애 시 항상 오프라인 mock fallback으로 응답하고 trace에 기록. 단, fallback 응답의 모델명은 `fallback-mock`으로 드러남 | Jev·외부 API 장애에도 시스템이 동작해야 한다는 원칙(CLAUDE.md). 품질 저하는 숨기지 않고 기록 |
+| 2026-10-13 | ~~provider 장애 시 항상 오프라인 mock fallback으로 응답~~ → 아래 "fallback을 다른 경로의 실제 모델로 변경" 행으로 대체됨 | 당시 근거: Jev·외부 API 장애에도 시스템이 동작해야 한다는 원칙. 실가동에서 틀린 선택으로 확인 |
 | 2026-10-13 | 입력 가드·라우터는 1단계에서 규칙(정규식, 길이, 키워드)만 사용 | 한 줄 관통이 목표. 정확도는 한계가 있고(오탐·미탐 존재) 4단계(가드 고도화)와 2단계(Jev 라우팅)에서 개선·측정 |
 | 2026-10-13 | 승격 규칙은 단일 임계값: 판정기가 easy이고 `p(easy) ≥ ROUTER_PROMOTE_THRESHOLD`(0.7)일 때만 소형 모델, 그 외는 상용 모델 | 3단계 평가에서 조정할 값이 τ 하나라 비용·정확도 곡선을 단순하게 훑을 수 있음. 불확실하면 비싼 쪽으로 가는 보수적 방향 |
 | 2026-10-13 | 판정기 실패 시 규칙 결과로 대체하고 `judge_unavailable`로 기록 (안전하게 frontier로 보내지 않음) | 판정기 장애가 곧 비용 급증이 되지 않게 함. 대신 오분류 위험이 있어 발생 비율을 trace로 감시 |
@@ -187,5 +187,6 @@
 | 2026-10-13 | 리포트에 찍는 모델 식별자에서 엔드포인트의 계정·워크스페이스 ID 라벨을 가림 (`display_identity`). 캐시 키는 실제 URL을 유지 | 첫 실측 리포트에 Alibaba 워크스페이스 ID가 그대로 들어갔고, 리포트는 docs/로 복사해 커밋하도록 안내돼 있어 공개 저장소로 샐 수 있었음 |
 | 2026-10-13 | 첫 실측 해석: 정책 v1의 Jev는 `hard`를 한 번도 내지 않았지만(80/80 easy) 순위 신호는 있음(AUC 0.935). τ≈0.995에서 `all_frontier`와 같은 정확도(97.5%)에 비용 47% 절감. **임계값을 같은 데이터에서 골랐으므로 낙관적** | [상세](evals/2026-10-13_qwen-first-run.md). 다음은 정책 v2와 보류 데이터 검증 |
 | 2026-10-13 | 게이트웨이 서버를 실제 Qwen + Jev로 처음 가동해 확인(`hybrid`, τ=0.995, 임시 인증 키, 별도 SQLite). 정상·차단·인증·fallback 시나리오가 의도대로 동작. 열린 문제 4건: fallback이 의미 없는 echo를 200으로 반환, 401·422 오류 본문이 OpenAI 형식이 아님, 기본 임계값 0.7이 Jev와 맞지 않음, 응답에 경로·판정이 드러나지 않음 | [상세](evals/2026-10-13_gateway-live-run.md). 각 항목은 설계 결정이 필요해 아직 고치지 않음 |
+| 2026-10-13 | fallback을 **다른 경로의 실제 모델로 변경**: 소형이 실패하면 상용, 상용이 실패하면 소형이 답하고 모두 실패하면 502. mock 대체 응답은 운영 wiring에서 제거(mock은 mock 모드의 provider로만 존재). 응답 헤더 `X-LLMOps-Route`·`X-LLMOps-Fallback`·`X-LLMOps-Route-Reason`·`X-LLMOps-P-Easy` 추가. 대체 모델의 토큰은 그 모델의 단가로 계산 | 실가동에서 소형 키 오류 시 "질문을 따라 말하는 문장"이 HTTP 200으로 나가 장애가 묻힘(열린 문제 1·4). 품질이 다른 모델로 대체될 수 있으므로 헤더·`model`·trace로 항상 드러냄. 상용→소형 대체는 품질이 낮아질 수 있어 `X-LLMOps-Fallback: true`로 구분. CLAUDE.md의 "mock/오픈소스 fallback을 항상 유지" 원칙과 달라지는 점은 문구 수정 제안으로 사용자에게 올림 |
 | 2026-10-13 | 리포트는 mock인 구성 요소를 구분해 표시: 판정기만 mock이면 소형·상용·`rules` 수치는 유효, `hybrid`·판정기 품질만 무효 | Jev 접근 전에도 모델 수치를 먼저 얻을 수 있으므로, 유효한 수치까지 일괄 폐기하게 만들지 않기 위해 |
 | 2026-10-13 | 실호출 `collect`는 `ALLOW_LIVE_CALLS=1` + `--budget-usd` 필수, 캐시 키에 모델 identity·정책 버전·`max_tokens` 포함, 리포트는 메타와 키가 맞는 기록만 사용 | 비용 사고 방지, 모델을 바꿔 일부만 다시 수집했을 때 결과가 섞이는 것을 방지 |

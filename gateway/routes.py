@@ -4,12 +4,38 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from gateway.auth import require_api_key
-from gateway.pipeline import Blocked, ProviderUnavailableError
+from gateway.pipeline import Blocked, Completed, ProviderUnavailableError
 from gateway.schemas import ChatCompletionRequest, error_body
 from gateway.trace import TraceRecorder, flush_trace
 from providers.base import ChatMessage
 
 router = APIRouter()
+
+
+def _header_token(value: object) -> str | None:
+    """A printable-ASCII header value, or None if it is not one (e.g. a Korean keyword)."""
+    text = str(value)
+    return text if text.isascii() and text.isprintable() else None
+
+
+def _route_headers(outcome: Completed) -> dict[str, str]:
+    """What the gateway decided, for clients that cannot read the trace.
+
+    `X-LLMOps-Route` is the router's choice; when `X-LLMOps-Fallback` is true a different
+    provider answered, and the body's `model` says which. The reason keeps only the part before
+    ':' (`keyword:analyze` -> `keyword`) so matched user text never reaches a header.
+    """
+    headers = {
+        "X-LLMOps-Route": outcome.route.route.value,
+        "X-LLMOps-Fallback": "true" if outcome.fallback_used else "false",
+    }
+    reason = _header_token(outcome.route.reason.split(":", 1)[0])
+    if reason:
+        headers["X-LLMOps-Route-Reason"] = reason
+    p_easy = outcome.route.detail.get("p_easy")
+    if isinstance(p_easy, int | float):
+        headers["X-LLMOps-P-Easy"] = f"{p_easy:.4f}"
+    return headers
 
 
 @router.get("/healthz")
@@ -60,7 +86,8 @@ async def chat_completions(body: ChatCompletionRequest, request: Request) -> JSO
 
     response = outcome.response
     return JSONResponse(
-        {
+        headers=_route_headers(outcome),
+        content={
             "id": f"chatcmpl-{request_id}",
             "object": "chat.completion",
             "created": int(time.time()),
@@ -77,5 +104,5 @@ async def chat_completions(body: ChatCompletionRequest, request: Request) -> JSO
                 "completion_tokens": response.completion_tokens,
                 "total_tokens": response.prompt_tokens + response.completion_tokens,
             },
-        }
+        },
     )

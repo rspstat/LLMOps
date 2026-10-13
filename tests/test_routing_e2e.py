@@ -41,6 +41,19 @@ def test_default_rules_mode_never_calls_the_judge(settings, trace_store, auth_he
     ]
 
 
+def test_hybrid_response_headers_expose_route_reason_and_probability(
+    settings, trace_store, auth_headers
+):
+    client = make_client(settings, trace_store, MockDecisionProvider(), router_mode="hybrid")
+    response = client.post(URL, json=chat("what is 2+2"), headers=auth_headers)
+
+    assert response.headers["X-LLMOps-Route"] == "small"
+    assert response.headers["X-LLMOps-Route-Reason"] == "judge_easy"
+    p_easy = float(response.headers["X-LLMOps-P-Easy"])
+    judged = events_of(response, trace_store)[1]
+    assert p_easy == pytest.approx(judged.detail["probabilities"]["easy"], abs=1e-4)
+
+
 def test_hybrid_easy_request_records_judge_then_router_then_provider(
     settings, trace_store, auth_headers
 ):

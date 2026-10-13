@@ -18,7 +18,7 @@ from router.base import JudgeRecord, RouteDecision, Router
 
 
 class ProviderUnavailableError(Exception):
-    """The routed provider and the fallback both failed."""
+    """The routed provider and every fallback failed."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +40,8 @@ class Blocked:
 
 @dataclass(frozen=True, slots=True)
 class Completed:
+    """`route` is what the router chose; `fallback_used` says a different provider answered."""
+
     response: ProviderResponse
     route: RouteDecision
     provider: str
@@ -51,10 +53,11 @@ def _elapsed_ms(start: float) -> int:
 
 
 class Pipeline:
-    """Input guard -> router -> provider (with fallback), recording one trace event per stage.
+    """Input guard -> router -> provider (with failover), recording one trace event per stage.
 
     When the router consulted a judge, a `judge` event is recorded just before the `router`
     event. The router event's latency covers the whole routing step, judge call included.
+    Every provider attempt gets its own `provider` event, so a failover shows both attempts.
     """
 
     def __init__(
@@ -126,17 +129,14 @@ class Pipeline:
             max_tokens=min(max_tokens or self._max_output_tokens, self._max_output_tokens),
             temperature=temperature,
         )
-        primary = self._providers.for_route(route.route.value)
-        price = self._prices.get(route.route.value, Price())
-        response = await self._attempt(recorder, primary, request, route, price, fallback=False)
-        if response is not None:
-            return Completed(response, route, primary.name, fallback_used=False)
-
-        fallback = self._providers.fallback
-        response = await self._attempt(recorder, fallback, request, route, Price(), fallback=True)
-        if response is not None:
-            return Completed(response, route, fallback.name, fallback_used=True)
-        raise ProviderUnavailableError("routed provider and fallback both failed")
+        for index, candidate in enumerate(self._providers.failover_chain(route.route.value)):
+            price = self._prices.get(candidate.route or "", Price())
+            response = await self._attempt(
+                recorder, candidate.provider, request, route, price, fallback=index > 0
+            )
+            if response is not None:
+                return Completed(response, route, candidate.provider.name, fallback_used=index > 0)
+        raise ProviderUnavailableError("the routed provider and every fallback failed")
 
     def _record_judge(self, recorder: TraceRecorder, judge: JudgeRecord) -> None:
         detail: dict = {"provider": judge.provider, "policy_version": judge.policy_version}

@@ -37,11 +37,10 @@ def build_registry(settings: Settings) -> ProviderRegistry:
     else:
         frontier = MockProvider("mock-frontier")
 
-    # The fallback is always offline so the gateway keeps answering when a backend is down.
-    return ProviderRegistry(
-        routes={"small": small, "frontier": frontier},
-        fallback=MockProvider("fallback-mock"),
-    )
+    # No stand-in provider: if one route's model is down the other route's model answers, and
+    # if both are down the request fails with 502. (All-mock dev mode never fails over to
+    # anything but its own mocks.)
+    return ProviderRegistry(routes={"small": small, "frontier": frontier})
 
 
 def build_judge(settings: Settings) -> DecisionProvider:

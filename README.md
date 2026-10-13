@@ -82,7 +82,7 @@ curl http://localhost:8000/v1/chat/completions \
 ```
 
 - 응답 헤더의 `X-Request-ID`가 trace의 키입니다. 기본 저장소는 `data/traces.sqlite3`(SQLite, 커밋되지 않음)이며 단계별(`guard` → `router` → `provider`) 판정·토큰·비용·지연이 기록됩니다.
-- 입력 가드가 막으면 400, 라우팅된 모델이 실패하면 오프라인 fallback으로 응답합니다(trace에 기록).
+- 입력 가드가 막으면 400입니다. 라우팅된 모델이 실패하면 다른 경로의 실제 모델이 대신 답하고(응답 헤더 `X-LLMOps-Fallback: true`, trace에 기록), 모두 실패하면 502입니다. 응답 헤더 `X-LLMOps-Route` / `X-LLMOps-Route-Reason` / `X-LLMOps-P-Easy`로 라우팅 결정도 볼 수 있습니다.
 - 실제 모델 연결은 `.env`의 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`로 켭니다. 한 번만 실제 호출을 확인하는 스모크 스크립트는 `scripts/smoke_live.py`(기본 비활성)입니다.
 
 ```bash

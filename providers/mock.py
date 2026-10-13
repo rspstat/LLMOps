@@ -12,7 +12,7 @@ _ECHO_LIMIT = 80
 class MockProvider:
     """Deterministic offline provider: echoes the last user message. Never touches the network.
 
-    Pass `fail=True` to simulate an outage, which exercises the fallback path.
+    Pass `fail=True` to simulate an outage, which exercises the failover path.
     """
 
     def __init__(self, name: str = "mock", *, fail: bool = False) -> None:
