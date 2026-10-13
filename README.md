@@ -3,6 +3,8 @@
 LLM gateway with guardrails, cost-aware routing (rules · Jev · open-source SLMs · frontier APIs), and automated evaluation. Built with FastAPI.
 
 > 2026-2학기 충북대학교 소프트웨어학부 AI 활용 대회 출품 프로젝트 (개발 진행 중)
+>
+> 이 서비스가 **무엇을 제공하는지**(기능 요구사항, 현재 상태, 범위 밖)는 [docs/product.md](docs/product.md)에 정리했습니다.
 
 ## 개요
 
