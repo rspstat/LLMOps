@@ -154,6 +154,42 @@ def test_a_workspace_id_in_the_host_never_appears_in_the_check_output(tmp_path, 
 ALIBABA = "https://ws1.ap-southeast-1.maas.aliyuncs.com"
 
 
+def same_endpoint_env(small_key: str, frontier_key: str) -> str:
+    base = f"{ALIBABA}/compatible-mode/v1"
+    return LIVE_QWEN.replace(
+        f"SLM_API_KEY={SECRETS['SLM_API_KEY']}", f"SLM_API_KEY={small_key}"
+    ).replace(f"OPENAI_API_KEY={SECRETS['OPENAI_API_KEY']}", f"OPENAI_API_KEY={frontier_key}") + (
+        f"\nSLM_BASE_URL={base}\nFRONTIER_BASE_URL={base}\n"
+    )
+
+
+def test_two_models_on_one_endpoint_with_different_keys_get_a_note_not_an_error(tmp_path, capsys):
+    # The reported case: the small model's copy of the key lost a character.
+    code, text = check(tmp_path, capsys, same_endpoint_env("sk-abcdefghij", "sk-abcdefghijk"))
+    assert code == 0  # legitimate setups can use two keys
+    assert "SLM_API_KEY 와 OPENAI_API_KEY 가 서로 다릅니다 (길이도 다름)" in text
+    assert "sk-abcdefghij" not in text  # and nothing about the keys themselves is shown
+
+
+def test_same_length_but_different_keys_are_noted_without_the_length_remark(tmp_path, capsys):
+    code, text = check(tmp_path, capsys, same_endpoint_env("sk-abcdefghij", "sk-abcdefghiX"))
+    assert code == 0 and "서로 다릅니다." in text and "길이도 다름" not in text
+
+
+def test_identical_keys_on_one_endpoint_get_no_note(tmp_path, capsys):
+    code, text = check(tmp_path, capsys, same_endpoint_env("sk-abcdefghij", "sk-abcdefghij"))
+    assert code == 0 and "서로 다릅니다" not in text
+
+
+def test_different_keys_on_different_endpoints_are_expected_and_not_noted(tmp_path, capsys):
+    env = (
+        LIVE_QWEN
+        + "\nSLM_BASE_URL=https://a.example.test/v1\nFRONTIER_BASE_URL=https://b.example.test/v1\n"
+    )
+    code, text = check(tmp_path, capsys, env)
+    assert code == 0 and "서로 다릅니다" not in text
+
+
 def test_valid_base_urls_pass_and_show_the_masked_host_with_its_plain_path(tmp_path, capsys):
     env = (
         LIVE_QWEN + f"\nSLM_BASE_URL={ALIBABA}/compatible-mode/v1"

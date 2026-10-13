@@ -266,6 +266,22 @@ def diagnose(
                 "FRONTIER_PRICE_IN/OUT_PER_MTOK 단가가 0 입니다 (제공사 가격표를 보고 채우세요)."
             )
 
+    # Both models behind one endpoint normally share one key. A mismatch is a note, not an error
+    # (two keys of one account are legitimate), but it is the usual sign of a truncated copy.
+    if s.small_provider != "mock" and s.frontier_provider != "mock":
+        same_endpoint = s.slm_base_url.strip().rstrip("/") == s.frontier_base_url.strip().rstrip(
+            "/"
+        )
+        small_key = s.slm_api_key.get_secret_value()
+        frontier_key = s.openai_api_key.get_secret_value()
+        if same_endpoint and small_key and small_key != frontier_key:
+            different_length = len(small_key) != len(frontier_key)
+            out.append(
+                "  (참고) 소형과 상용이 같은 주소를 쓰는데 SLM_API_KEY 와 OPENAI_API_KEY 가 서로 다릅니다"
+                + (" (길이도 다름)" if different_length else "")
+                + ". 같은 서비스의 같은 키를 넣으려던 것이라면 한쪽이 복사 중에 잘렸을 수 있습니다."
+            )
+
     # judge
     if s.judge_provider == "mock":
         out.append("판정기(judge) : mock (오프라인 가짜 판정기)")
