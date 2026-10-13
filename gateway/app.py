@@ -1,23 +1,13 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 
-from gateway.middleware import REQUEST_ID_HEADER, RequestIdMiddleware
+from gateway.errors import register_error_handlers
+from gateway.middleware import RequestIdMiddleware
 from gateway.routes import router
 from gateway.settings import Settings
 from gateway.trace import TraceStore, create_trace_store
 from gateway.wiring import build_pipeline, build_registry
 from providers.decision import DecisionProvider
 from providers.registry import ProviderRegistry
-
-
-async def _unhandled_error(request: Request, exc: Exception) -> JSONResponse:
-    # ServerErrorMiddleware sits outside our middleware, so the header must be added here.
-    request_id = request.scope.get("state", {}).get("request_id", "")
-    return JSONResponse(
-        {"detail": "Internal server error"},
-        status_code=500,
-        headers={REQUEST_ID_HEADER: request_id},
-    )
 
 
 def create_app(
@@ -34,6 +24,6 @@ def create_app(
     app.state.trace_store = trace_store or create_trace_store(settings.database_url)
     app.state.pipeline = build_pipeline(settings, providers or build_registry(settings), judge)
     app.add_middleware(RequestIdMiddleware)
-    app.add_exception_handler(Exception, _unhandled_error)
+    register_error_handlers(app)
     app.include_router(router)
     return app

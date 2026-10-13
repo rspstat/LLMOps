@@ -18,5 +18,6 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = False
 
 
-def error_body(message: str, error_type: str, code: str) -> dict:
-    return {"error": {"message": message, "type": error_type, "code": code}}
+def error_body(message: str, error_type: str, code: str, param: str | None = None) -> dict:
+    """The OpenAI error shape; `param` names the offending request field, if any."""
+    return {"error": {"message": message, "type": error_type, "param": param, "code": code}}
