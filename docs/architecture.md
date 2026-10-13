@@ -1,6 +1,8 @@
 # 아키텍처 설계 노트
 
 > 설계가 확정되는 대로 이 문서를 채웁니다. 중간발표 자료의 근거 문서로 사용합니다.
+>
+> 코드 경로(`gateway/`, `evals/`, `tests/` 등)는 따로 적지 않으면 `code/backend/` 기준이다. 프런트엔드는 `code/frontend/`.
 
 ## 1. 요청 흐름
 
@@ -191,3 +193,4 @@
 | 2026-10-13 | 모든 오류 응답을 OpenAI 형식 `{"error": {message, type, param, code}}`로 통일(`gateway/errors.py`): 401은 `invalid_api_key`, 검증 오류는 `invalid_request`(+`param`에 필드 경로), 404·405·500도 포함. 상태 코드는 유지(422는 400으로 바꾸지 않음). 검증 오류는 입력 값을 응답에 담지 않음 | 실가동에서 가드·스트리밍 거절은 `error` 형식인데 인증·검증 실패는 FastAPI 기본 `detail`이라 OpenAI SDK 클라이언트가 오류를 일관되게 읽지 못했음(열린 문제 2). 400 대신 422를 유지한 이유: 상태 코드 변경은 기존 계약을 바꾸는 일이고, 이번 문제는 본문 모양이었음. OpenAI SDK가 422를 별도 예외로 다루는 것으로 알고 있으나 이 환경에서 SDK로 확인하지는 않음 |
 | 2026-10-13 | 리포트는 mock인 구성 요소를 구분해 표시: 판정기만 mock이면 소형·상용·`rules` 수치는 유효, `hybrid`·판정기 품질만 무효 | Jev 접근 전에도 모델 수치를 먼저 얻을 수 있으므로, 유효한 수치까지 일괄 폐기하게 만들지 않기 위해 |
 | 2026-10-13 | 실호출 `collect`는 `ALLOW_LIVE_CALLS=1` + `--budget-usd` 필수, 캐시 키에 모델 identity·정책 버전·`max_tokens` 포함, 리포트는 메타와 키가 맞는 기록만 사용 | 비용 사고 방지, 모델을 바꿔 일부만 다시 수집했을 때 결과가 섞이는 것을 방지 |
+| 2026-10-13 | 저장소를 `code/backend`(Python 전부: gateway·providers·router·guards·evals·scripts·tests·pyproject·uv.lock·`.env`)와 `code/frontend`(React)로 분리하고, 문서(`docs/`)·README·CLAUDE.md는 루트에 둠. 파일은 `git mv`로 옮겨 이력을 유지하고, 비어 있던 `demo_app/`은 삭제 | 웹 화면(React)을 추가하면서 백엔드·프런트엔드 도구 체인(uv, npm)이 섞이지 않게 하기 위함. 이동 전후로 테스트 596개·린트 결과가 같음을 확인. 함께 고친 것: `.gitignore`의 평가 캐시·리포트 경로(루트 기준이라 옮기면 커밋 대상이 될 뻔함), 실행 위치가 `code/backend`로 바뀌어 `.env`와 `data/`도 그 아래로 이동 |

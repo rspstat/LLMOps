@@ -1,10 +1,10 @@
 # evals
 
-라우팅 평가 모듈. "어떤 라우팅 설정(모드 × 임계값 τ)이 비용을 얼마나 줄이고 정확도를 얼마나 잃는가"를 재현 가능하게 측정합니다. 설계와 결정 근거는 [docs/architecture.md §6](../docs/architecture.md)을 보세요.
+라우팅 평가 모듈. "어떤 라우팅 설정(모드 × 임계값 τ)이 비용을 얼마나 줄이고 정확도를 얼마나 잃는가"를 재현 가능하게 측정합니다. 설계와 결정 근거는 [docs/architecture.md §6](../../../docs/architecture.md)을 보세요.
 
 ## 현재 상태
 
-도구는 mock으로 검증했고, 2026-10-13에 Qwen(소형 `qwen3.7-flash`, 상용 `qwen3.8-max`)과 Jev로 80문항을 처음 실측했습니다(약 $0.009). 결과와 한계는 [docs/evals/2026-10-13_qwen-first-run.md](../docs/evals/2026-10-13_qwen-first-run.md)에 있습니다. mock으로 만든 리포트의 숫자는 여전히 의미가 없으며, 리포트 상단에 경고가 표시됩니다.
+도구는 mock으로 검증했고, 2026-10-13에 Qwen(소형 `qwen3.7-flash`, 상용 `qwen3.8-max`)과 Jev로 80문항을 처음 실측했습니다(약 $0.009). 결과와 한계는 [docs/evals/2026-10-13_qwen-first-run.md](../../../docs/evals/2026-10-13_qwen-first-run.md)에 있습니다. mock으로 만든 리포트의 숫자는 여전히 의미가 없으며, 리포트 상단에 경고가 표시됩니다.
 
 ## 흐름
 

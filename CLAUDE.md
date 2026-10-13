@@ -35,9 +35,10 @@ FastAPI 기반 **LLM 게이트웨이**: 입력 가드 → 라우팅 엔진 → �
 
 > 새 명령이 생기면 **즉시 이 섹션을 갱신**한다. 실행해 본 적 없는 명령을 추측해서 적지 않는다.
 
-Python은 uv로 관리한다 (`.python-version` = 3.12, `uv.lock` 커밋).
+Python은 uv로 관리한다 (`.python-version` = 3.12, `uv.lock` 커밋). 백엔드 코드는 `code/backend/`, 프런트엔드는 `code/frontend/`, 문서는 루트의 `docs/`에 둔다. 아래 Python 명령은 모두 `code/backend/`에서 실행하고, `.env`·`.venv`·`data/`·`evals/cache`도 그 폴더 아래에 있다.
 
 ```bash
+cd code/backend                                           # 이하 Python 명령은 여기서 실행
 uv sync                                                   # 환경 생성/동기화
 uv run pytest                                             # 테스트 (전부 mock, 네트워크 없음)
 uv run ruff check . && uv run ruff format --check .       # 린트 + 포맷 검사
@@ -50,10 +51,10 @@ ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 f
 - `--target jev`는 실제 라우팅 질문(easy/hard)을 Jev에 1회 보낸다. 2026-10-13에 실제로 실행해 어댑터가 맞는 것을 확인했다.
 
 ```bash
-# 라우팅 평가 (evals/README.md)
+# 라우팅 평가 (code/backend/evals/README.md)
 uv run python -m evals.run validate                         # 데이터셋 검사
 uv run python -m evals.run collect --name demo --limit 20   # 기본 mock, 호출 없음
-uv run python -m evals.run report  --name demo              # evals/reports/demo/report.md
+uv run python -m evals.run report  --name demo              # code/backend/evals/reports/demo/report.md
 uv run python -m evals.run collect --name real --dry-run    # 실제 provider: 예상 호출 수·비용 상한만 출력
 # 실호출 수집 — 비용 발생. 내가 요청할 때만 실행한다 (ALLOW_LIVE_CALLS=1 과 --budget-usd 필수).
 ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0.25
@@ -61,7 +62,7 @@ ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0
 
 - `uv run python -m evals.run check`는 `.env`가 실제로 무엇을 켜는지(provider 스위치, 키 유무, 단가, 오타 난 변수)를 값 없이 보여 준다. `.env` 확인은 이 명령으로 한다.
 - 모델 선택 근거와 단가 비교: `docs/api-pricing-2026-10.md`.
-- 실호출 전에 `.env`에 모델명·키·**단가**(`*_PRICE_*`)가 필요하다. 과금되는 모델에 단가가 없으면 수집이 거부된다. 항목과 실행 순서는 `evals/README.md`의 "실측" 절. `.env`는 내가 읽지 않고, 확인은 `collect --dry-run`(키를 출력하지 않음)으로 한다.
+- 실호출 전에 `.env`에 모델명·키·**단가**(`*_PRICE_*`)가 필요하다. 과금되는 모델에 단가가 없으면 수집이 거부된다. 항목과 실행 순서는 `code/backend/evals/README.md`의 "실측" 절. `.env`는 내가 읽지 않고, 확인은 `collect --dry-run`(키를 출력하지 않음)으로 한다.
 - 소형 모델이 호스팅 API이면 `SLM_API_KEY`를 채운다 (자체 서빙이면 비움).
 - 라우팅 모드는 `ROUTER_MODE`(rules | hybrid | judge_only), 판정기는 `JUDGE_PROVIDER`(mock | jev). 기본은 `rules` + `mock`이라 외부 호출이 없다.
 

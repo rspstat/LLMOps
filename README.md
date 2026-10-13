@@ -41,15 +41,15 @@ flowchart LR
 
 ## 디렉터리 구조
 
-| 경로 | 설명 |
+Python 백엔드는 모두 `code/backend/` 아래에 있고, 프런트엔드는 `code/frontend/`에 둘 예정입니다(시연 화면, 7단계 앞당김). 문서(설계, 발표 자료, `ai-log/`의 AI 대화 기록)는 루트의 `docs/`입니다.
+
+| 경로 (`code/backend/` 기준) | 설명 |
 |---|---|
 | `gateway/` | FastAPI 게이트웨이 (OpenAI 호환 API, 인증, 스트리밍, trace 기록) |
 | `guards/` | 입력·출력 가드레일 (프롬프트 인젝션, PII, 정책 위반) |
 | `router/` | 라우팅 엔진 (규칙 · Jev · 모델 선택, 신뢰도 임계값, fallback) |
 | `providers/` | 모델 provider 추상화 (Jev, 상용 API, HF/vLLM) |
 | `evals/` | 평가 데이터셋, judge, 벤치마크, 리포트 |
-| `demo_app/` | 게이트웨이를 통과하는 시연용 서비스 |
-| `docs/` | 설계 문서, 발표 자료, `ai-log/` (AI 대화 기록) |
 
 ## 로드맵
 
@@ -67,6 +67,7 @@ flowchart LR
 필요한 것: [uv](https://docs.astral.sh/uv/) (Python 3.12는 uv가 자동으로 받습니다).
 
 ```bash
+cd code/backend        # 이하 Python 명령은 모두 여기서 실행합니다 (.env도 이 폴더에 둡니다)
 uv sync                # 의존성 설치 (.venv 생성)
 cp .env.example .env   # PowerShell: Copy-Item .env.example .env
                        # GATEWAY_API_KEY 에 임의의 긴 문자열을 채우세요. .env 는 절대 커밋하지 마세요.
@@ -81,12 +82,12 @@ curl http://localhost:8000/v1/chat/completions \
   -d '{"messages":[{"role":"user","content":"안녕하세요"}]}'
 ```
 
-- 응답 헤더의 `X-Request-ID`가 trace의 키입니다. 기본 저장소는 `data/traces.sqlite3`(SQLite, 커밋되지 않음)이며 단계별(`guard` → `router` → `provider`) 판정·토큰·비용·지연이 기록됩니다.
+- 응답 헤더의 `X-Request-ID`가 trace의 키입니다. 기본 저장소는 `code/backend/data/traces.sqlite3`(SQLite, 커밋되지 않음)이며 단계별(`guard` → `router` → `provider`) 판정·토큰·비용·지연이 기록됩니다.
 - 입력 가드가 막으면 400입니다. 라우팅된 모델이 실패하면 다른 경로의 실제 모델이 대신 답하고(응답 헤더 `X-LLMOps-Fallback: true`, trace에 기록), 모두 실패하면 502입니다. 응답 헤더 `X-LLMOps-Route` / `X-LLMOps-Route-Reason` / `X-LLMOps-P-Easy`로 라우팅 결정도 볼 수 있습니다.
 - 실제 모델 연결은 `.env`의 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`로 켭니다. 한 번만 실제 호출을 확인하는 스모크 스크립트는 `scripts/smoke_live.py`(기본 비활성)입니다.
 
 ```bash
-uv run pytest                                        # 테스트 (네트워크 없음)
+uv run pytest                                        # 테스트 (네트워크 없음, code/backend에서)
 uv run ruff check . && uv run ruff format --check .  # 린트
 ```
 
@@ -108,10 +109,10 @@ uv run ruff check . && uv run ruff format --check .  # 린트
 
 ```bash
 uv run python -m evals.run collect --name demo --limit 20   # 기본 mock, 키 없이 실행
-uv run python -m evals.run report  --name demo              # evals/reports/demo/report.md
+uv run python -m evals.run report  --name demo              # code/backend/evals/reports/demo/report.md
 ```
 
-데이터셋(영어·한국어 80개)은 AI가 작성했고 난이도 라벨은 검토 전입니다. mock으로 만든 리포트는 파이프라인이 동작한다는 것만 보여 주며 정확도·비용 수치에는 의미가 없습니다 (리포트 상단에 경고가 표시됩니다). 자세한 내용은 [evals/README.md](evals/README.md).
+데이터셋(영어·한국어 80개)은 AI가 작성했고 난이도 라벨은 검토 전입니다. mock으로 만든 리포트는 파이프라인이 동작한다는 것만 보여 주며 정확도·비용 수치에는 의미가 없습니다 (리포트 상단에 경고가 표시됩니다). 자세한 내용은 [code/backend/evals/README.md](code/backend/evals/README.md).
 
 현재 구현 범위(로드맵 0~3단계): 규칙 기반 입력 가드 · 규칙/판정 하이브리드 라우터 · 비스트리밍 `/v1/chat/completions` · SQLite trace · 라우팅 평가 도구. 출력 가드, 스트리밍은 이후 단계입니다.
 
