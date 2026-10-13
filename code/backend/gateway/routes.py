@@ -18,16 +18,18 @@ def _header_token(value: object) -> str | None:
     return text if text.isascii() and text.isprintable() else None
 
 
-def _route_headers(outcome: Completed) -> dict[str, str]:
+def _route_headers(outcome: Completed, recorder: TraceRecorder) -> dict[str, str]:
     """What the gateway decided, for clients that cannot read the trace.
 
     `X-LLMOps-Route` is the router's choice; when `X-LLMOps-Fallback` is true a different
     provider answered, and the body's `model` says which. The reason keeps only the part before
     ':' (`keyword:analyze` -> `keyword`) so matched user text never reaches a header.
+    `X-LLMOps-Cost-USD` is the whole request: judge call plus every provider attempt.
     """
     headers = {
         "X-LLMOps-Route": outcome.route.route.value,
         "X-LLMOps-Fallback": "true" if outcome.fallback_used else "false",
+        "X-LLMOps-Cost-USD": f"{sum(e.cost_usd or 0.0 for e in recorder.events):.8f}",
     }
     reason = _header_token(outcome.route.reason.split(":", 1)[0])
     if reason:
@@ -86,7 +88,7 @@ async def chat_completions(body: ChatCompletionRequest, request: Request) -> JSO
 
     response = outcome.response
     return JSONResponse(
-        headers=_route_headers(outcome),
+        headers=_route_headers(outcome, recorder),
         content={
             "id": f"chatcmpl-{request_id}",
             "object": "chat.completion",

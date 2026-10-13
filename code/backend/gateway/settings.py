@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # Clients must send this as a Bearer token. Empty means every protected call is rejected.
     gateway_api_key: SecretStr = SecretStr("")
     max_output_tokens: int = 1024
+    # Serve the built demo screen (code/frontend/dist) at /demo. The page holds no secrets; the
+    # API calls it makes still need the Bearer key.
+    demo_ui_enabled: bool = True
 
     # Trace storage. Only sqlite:/// is implemented; postgresql:// is planned.
     database_url: str = "sqlite:///./data/traces.sqlite3"

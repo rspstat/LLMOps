@@ -54,6 +54,24 @@ def test_hybrid_response_headers_expose_route_reason_and_probability(
     assert p_easy == pytest.approx(judged.detail["probabilities"]["easy"], abs=1e-4)
 
 
+def test_cost_header_sums_the_judge_call_and_the_model_call(settings, trace_store, auth_headers):
+    client = make_client(
+        settings,
+        trace_store,
+        MockDecisionProvider(),
+        router_mode="hybrid",
+        jev_price_in_per_mtok=1_000_000.0,
+        small_price_in_per_mtok=1_000_000.0,
+    )
+    response = client.post(URL, json=chat("what is 2+2"), headers=auth_headers)
+
+    events = events_of(response, trace_store)
+    judged, provider = events[1], events[3]
+    assert judged.cost_usd > 0 and provider.cost_usd > 0
+    cost = float(response.headers["X-LLMOps-Cost-USD"])
+    assert cost == pytest.approx(judged.cost_usd + provider.cost_usd)
+
+
 def test_hybrid_easy_request_records_judge_then_router_then_provider(
     settings, trace_store, auth_headers
 ):

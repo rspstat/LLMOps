@@ -73,6 +73,7 @@ def test_keyword_routes_to_frontier_and_cost_uses_configured_price(
     usage = response.json()["usage"]
     expected = usage["prompt_tokens"] + 2 * usage["completion_tokens"]
     assert events[2].cost_usd == pytest.approx(expected)
+    assert float(response.headers["X-LLMOps-Cost-USD"]) == pytest.approx(expected)
 
 
 def test_injection_is_blocked_and_never_reaches_a_provider(settings, trace_store, auth_headers):
@@ -203,6 +204,7 @@ def test_route_headers_on_the_normal_path(settings, trace_store, auth_headers):
     assert response.headers["X-LLMOps-Fallback"] == "false"
     assert response.headers["X-LLMOps-Route-Reason"] == "default_small"
     assert "X-LLMOps-P-Easy" not in response.headers  # rules mode: no judge ran
+    assert float(response.headers["X-LLMOps-Cost-USD"]) == 0.0  # mock providers are free
 
 
 def test_route_reason_header_drops_matched_text(settings, trace_store, auth_headers):
