@@ -15,7 +15,7 @@
 | 0 | 요청 ID | 서버가 `request_id` 생성, 응답 헤더 `X-Request-ID`로 반환. 클라이언트가 보낸 `X-Request-ID`는 안전한 값일 때만 `client_request_id`로 trace에 기록 | 항상 서버 생성 (trace 키 충돌·위조 방지) |
 | 1 | 입력 가드 | 모든 메시지 본문 → `allow` / `block` + 사유 + 점수 | 400 `input_blocked`. 응답에는 범주만(`prompt_injection` 등), 세부 규칙은 trace에만 |
 | 2 | 라우터 (+ 판정기) | 사용자 메시지 → `small` / `frontier` + 사유 + 신뢰도. 판정기를 불렀다면 `judge` 이벤트가 `router` 이벤트 바로 앞에 기록됨 | 규칙 hit이면 판정기를 부르지 않고 확정. 아니면 판정 → 임계값 승격(§3). 판정이 실패하면 규칙 결과로 대체하고 사유를 trace에 기록 |
-| 3 | provider 호출 | 라우트에 매핑된 provider | `ProviderError`면 **다른 경로의 실제 모델**로 대체(소형→상용, 상용→소형)하고 시도마다 trace에 기록. 모두 실패하면 502 `provider_unavailable`. 응답 헤더 `X-LLMOps-Route` / `X-LLMOps-Fallback` / `X-LLMOps-Route-Reason` / `X-LLMOps-P-Easy`로 결정을 알림(사유는 `:` 앞 범주만, 비ASCII면 생략) |
+| 3 | provider 호출 | 라우트에 매핑된 provider | `ProviderError`면 **다른 경로의 실제 모델**로 대체(소형→상용, 상용→소형)하고 시도마다 trace에 기록. 모두 실패하면 502 `provider_unavailable`. 응답 헤더 `X-LLMOps-Route` / `X-LLMOps-Fallback` / `X-LLMOps-Route-Reason` / `X-LLMOps-P-Easy` / `X-LLMOps-Cost-USD`(판정 + 모델 호출 합계)로 결정을 알림(사유는 `:` 앞 범주만, 비ASCII면 생략) |
 | 4 | trace 저장 | 요청 단위로 모아 한 트랜잭션으로 기록 | 저장 실패는 로그만 남기고 응답은 정상 반환 |
 
 - `max_tokens`는 `MAX_OUTPUT_TOKENS`로 상한을 둔다. 요청의 `model` 필드는 받지만 라우터가 결정한다.
@@ -194,3 +194,7 @@
 | 2026-10-13 | 리포트는 mock인 구성 요소를 구분해 표시: 판정기만 mock이면 소형·상용·`rules` 수치는 유효, `hybrid`·판정기 품질만 무효 | Jev 접근 전에도 모델 수치를 먼저 얻을 수 있으므로, 유효한 수치까지 일괄 폐기하게 만들지 않기 위해 |
 | 2026-10-13 | 실호출 `collect`는 `ALLOW_LIVE_CALLS=1` + `--budget-usd` 필수, 캐시 키에 모델 identity·정책 버전·`max_tokens` 포함, 리포트는 메타와 키가 맞는 기록만 사용 | 비용 사고 방지, 모델을 바꿔 일부만 다시 수집했을 때 결과가 섞이는 것을 방지 |
 | 2026-10-13 | 저장소를 `code/backend`(Python 전부: gateway·providers·router·guards·evals·scripts·tests·pyproject·uv.lock·`.env`)와 `code/frontend`(React)로 분리하고, 문서(`docs/`)·README·CLAUDE.md는 루트에 둠. 파일은 `git mv`로 옮겨 이력을 유지하고, 비어 있던 `demo_app/`은 삭제 | 웹 화면(React)을 추가하면서 백엔드·프런트엔드 도구 체인(uv, npm)이 섞이지 않게 하기 위함. 이동 전후로 테스트 596개·린트 결과가 같음을 확인. 함께 고친 것: `.gitignore`의 평가 캐시·리포트 경로(루트 기준이라 옮기면 커밋 대상이 될 뻔함), 실행 위치가 `code/backend`로 바뀌어 `.env`와 `data/`도 그 아래로 이동 |
+| 2026-10-13 | 최소 시연 화면을 **React + Vite + TypeScript**(`code/frontend`)로 만들고, 빌드 결과(`dist`)를 게이트웨이가 `/demo`로 직접 서빙(같은 출처라 CORS 불필요, 서버 하나). `DEMO_UI_ENABLED`(기본 켜짐)로 끌 수 있고, 빌드가 없으면 `/demo`는 안내와 함께 503. 로드맵 7단계(대시보드)의 일부를 앞당긴 것 | 중간발표·시연에서 "웹 서비스"로 보이는 결과물이 필요하고, 응답 헤더로 노출한 라우팅 결정을 눈으로 보여 주기 위함. 정적 HTML 한 장 대신 React를 택한 이유: 이후 대시보드·평가 리포트 화면을 붙일 구조가 필요하고 Node 환경이 이미 있었음 |
+| 2026-10-13 | 시연 화면의 보안 규칙: 게이트웨이 키는 React 상태에만 두고 저장소·URL에 남기지 않음, 모델 출력과 오류 메시지는 텍스트로만 렌더링(`dangerouslySetInnerHTML` 미사용), `/demo` 응답에 엄격한 CSP(`default-src 'self'`, 인라인 스크립트·스타일 금지)·`nosniff`·`frame-ancestors 'none'`. `/demo` 페이지 자체는 비밀이 없어 인증 없이 열리고 API 호출은 여전히 Bearer 키 필요 | 모델 출력은 신뢰할 수 없는 텍스트이고 키가 브라우저에 입력됨. `<img onerror>`가 든 질문을 헤드리스 브라우저로 실제로 보내 `<img>` 요소가 생기지 않음을 확인 |
+| 2026-10-13 | 프런트엔드 의존성 추가: `react`·`react-dom`(화면), `vite`·`@vitejs/plugin-react`(개발 서버·빌드), `typescript`·`@types/react`·`@types/react-dom`(타입 검사), `vitest`(API 클라이언트·요약 로직 단위 테스트). `package-lock.json` 커밋, `node_modules/`·`dist/`는 무시 | 새 의존성은 이유를 남기는 규칙. 컴포넌트 렌더링 테스트용 라이브러리(jsdom, Testing Library)는 추가하지 않고, 렌더링은 헤드리스 브라우저로 직접 확인 |
+| 2026-10-13 | 응답 헤더 `X-LLMOps-Cost-USD` 추가(해당 요청의 trace 이벤트 `cost_usd` 합계: 판정 호출 + 모든 provider 시도) | 시연 화면이 "비용 차이가 보인다"를 보여 주려면 응답에 비용이 있어야 함. trace 조회 API 없이 해결 |

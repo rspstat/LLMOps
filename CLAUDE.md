@@ -28,6 +28,7 @@ FastAPI 기반 **LLM 게이트웨이**: 입력 가드 → 라우팅 엔진 → �
 ## 기술 스택
 
 - Python 3.11+, FastAPI, Pydantic v2, pytest, ruff
+- 시연 화면: React + Vite + TypeScript, vitest (`code/frontend`). 의존성은 `package.json`/`package-lock.json`으로 관리한다.
 - 저장소: PostgreSQL(+pgvector 또는 Qdrant) 예정. 확정되면 `docs/architecture.md`의 결정 기록에 남긴다.
 - 의존성은 `pyproject.toml`로 관리하고 꼭 필요한 것만 추가한다. 새 의존성을 추가할 땐 이유를 한 줄로 설명한다.
 
@@ -65,6 +66,17 @@ ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0
 - 실호출 전에 `.env`에 모델명·키·**단가**(`*_PRICE_*`)가 필요하다. 과금되는 모델에 단가가 없으면 수집이 거부된다. 항목과 실행 순서는 `code/backend/evals/README.md`의 "실측" 절. `.env`는 내가 읽지 않고, 확인은 `collect --dry-run`(키를 출력하지 않음)으로 한다.
 - 소형 모델이 호스팅 API이면 `SLM_API_KEY`를 채운다 (자체 서빙이면 비움).
 - 라우팅 모드는 `ROUTER_MODE`(rules | hybrid | judge_only), 판정기는 `JUDGE_PROVIDER`(mock | jev). 기본은 `rules` + `mock`이라 외부 호출이 없다.
+
+시연 화면(`code/frontend`)은 npm으로 관리한다. 게이트웨이가 빌드 결과를 `/demo`로 서빙한다(`DEMO_UI_ENABLED`).
+
+```bash
+cd code/frontend
+npm ci            # 의존성 설치
+npm run typecheck # 타입 검사 (tsc --noEmit)
+npm test          # 단위 테스트 (vitest)
+npm run build     # code/frontend/dist 생성
+npm run dev       # 개발 서버 http://localhost:5173/demo/ (API는 8000 포트로 프록시)
+```
 
 - Windows PowerShell에서는 `$env:ALLOW_LIVE_CALLS = "1"; uv run python -m scripts.smoke_live --target slm`.
 - provider 기본값은 mock이라 `.env`에 키가 있어도 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`를 바꾸기 전에는 외부 호출이 없다.

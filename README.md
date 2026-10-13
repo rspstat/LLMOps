@@ -41,7 +41,7 @@ flowchart LR
 
 ## 디렉터리 구조
 
-Python 백엔드는 모두 `code/backend/` 아래에 있고, 프런트엔드는 `code/frontend/`에 둘 예정입니다(시연 화면, 7단계 앞당김). 문서(설계, 발표 자료, `ai-log/`의 AI 대화 기록)는 루트의 `docs/`입니다.
+Python 백엔드는 모두 `code/backend/` 아래에, 시연 화면(React)은 `code/frontend/`에 있습니다. 문서(설계, 발표 자료, `ai-log/`의 AI 대화 기록)는 루트의 `docs/`입니다. `code/frontend/`는 [시연 화면](#시연-화면)을 보세요.
 
 | 경로 (`code/backend/` 기준) | 설명 |
 |---|---|
@@ -60,7 +60,7 @@ Python 백엔드는 모두 `code/backend/` 아래에 있고, 프런트엔드는 
 - [ ] **4. 가드 고도화**: 인젝션·PII 탐지, 공격 프롬프트 자동 생성, 방어율 측정
 - [ ] **5. 파인튜닝**: 라우팅/가드 분류기, 소형 judge (1B 이하 모델 위주)
 - [ ] **6. 벤치마크**: LLM 단독 vs 하이브리드, Jev vs 파인튜닝 분류기 vs LLM judge
-- [ ] **7. 마무리**: 대시보드 정리, 시연 영상, 회고
+- [ ] **7. 마무리**: 대시보드 정리, 시연 영상, 회고 (최소 시연 화면은 먼저 구현함: [시연 화면](#시연-화면))
 
 ## 시작하기
 
@@ -90,6 +90,23 @@ curl http://localhost:8000/v1/chat/completions \
 uv run pytest                                        # 테스트 (네트워크 없음, code/backend에서)
 uv run ruff check . && uv run ruff format --check .  # 린트
 ```
+
+### 시연 화면
+
+질문을 보내면 경로·사유·`p(easy)`·모델·토큰·비용·지연이 한 화면에 보이는 React 앱입니다. 게이트웨이가 빌드 결과를 `/demo`로 서빙합니다.
+
+```bash
+cd code/frontend
+npm ci            # 의존성 설치
+npm run build     # code/frontend/dist 생성 (게이트웨이가 /demo 로 제공)
+# 게이트웨이를 켜고 http://localhost:8000/demo/ 를 엽니다. 키는 화면의 입력칸에 넣습니다(저장되지 않음).
+npm run dev       # 개발 서버 http://localhost:5173/demo/ (API는 8000 포트의 게이트웨이로 프록시)
+npm test          # 단위 테스트
+```
+
+- `p(easy)`는 `ROUTER_MODE=hybrid`(또는 `judge_only`)에서 판정기를 거친 요청에만 표시됩니다. 실제 Jev로 보려면 `JUDGE_PROVIDER=jev`와 `ROUTER_PROMOTE_THRESHOLD=0.995` 같은 값이 필요합니다.
+- 화면을 끄려면 `DEMO_UI_ENABLED=false`. 빌드하지 않으면 `/demo`는 빌드 안내와 함께 503을 돌려줍니다.
+- 이력 표는 이번 접속에서 보낸 요청만 보여 주며 서버에 저장하지 않습니다.
 
 ### 라우팅 모드 (2단계)
 
