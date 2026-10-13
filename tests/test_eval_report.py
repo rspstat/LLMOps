@@ -77,6 +77,20 @@ async def test_mock_runs_are_flagged_at_the_top_and_real_runs_are_not():
 
 
 @pytest.mark.anyio
+async def test_the_report_masks_account_ids_in_model_identities_so_it_can_be_shared():
+    # A report is meant to be copied into docs/ and committed; identities carry the endpoint.
+    host = "ws-secretid123.ap-southeast-1.maas.aliyuncs.com"
+    meta = make_meta(
+        small=f"slm:qwen3.7-flash@https://{host}/compatible-mode/v1+extra:0c3212f8",
+        frontier=f"openai:qwen3.8-max@https://{host}/compatible-mode/v1+extra:0c3212f8",
+    )
+    text = render_markdown(await build(meta))
+    assert "secretid123" not in text
+    assert "slm:qwen3.7-flash@https://*.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1" in text
+    assert "+extra:0c3212f8" in text  # the thinking-mode tag survives, it is not secret
+
+
+@pytest.mark.anyio
 async def test_empty_model_answers_are_called_out_in_the_report():
     meta = make_meta()
     cached = keyed(meta)

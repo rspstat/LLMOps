@@ -1,7 +1,7 @@
 import pytest
 
 from evals import run
-from evals.check import host_for_display, url_for_display
+from evals.check import display_identity, host_for_display, url_for_display
 from gateway.settings import Settings
 
 SECRETS = {
@@ -141,6 +141,28 @@ def test_a_host_with_an_underscore_is_accepted(tmp_path, capsys):
 def test_host_display_hides_an_account_id_label_but_keeps_ordinary_hosts(url, shown):
     assert host_for_display(url) == shown
     assert "secretid123" not in host_for_display(url)
+
+
+@pytest.mark.parametrize(
+    ("identity", "shown"),
+    [
+        ("mock:small", "mock:small"),
+        ("slm:tiny@http://localhost:11434/v1", "slm:tiny@http://localhost:11434/v1"),
+        ("jev:jev-latest@https://api.typesafe.ai/v1/systemone",
+         "jev:jev-latest@https://api.typesafe.ai/v1/systemone"),
+        ("openai:m@https://ws-id77.region.vendor.com/compatible-mode/v1+extra:abc123",
+         "openai:m@https://*.region.vendor.com/compatible-mode/v1+extra:abc123"),
+        ("slm:m@https://ws-id77.region.vendor.com", "slm:m@https://*.region.vendor.com"),
+    ],
+)  # fmt: skip
+def test_display_identity_masks_the_account_label_and_keeps_the_rest(identity, shown):
+    assert display_identity(identity) == shown
+
+
+def test_the_default_threshold_sweep_is_dense_near_one_where_jev_probabilities_live():
+    taus = [float(t) for t in run.DEFAULT_TAUS.split(",")]
+    assert taus == sorted(taus) and taus[0] <= 0.5 and taus[-1] >= 0.99
+    assert sum(t >= 0.95 for t in taus) >= 4  # a judge that saturates needs a fine top end
 
 
 def test_a_workspace_id_in_the_host_never_appears_in_the_check_output(tmp_path, capsys):

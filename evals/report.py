@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from evals.cache import CachedItem, CacheMeta
+from evals.check import display_identity
 from evals.collect import key_from_parts
 from evals.metrics import (
     ConfigSummary,
@@ -219,7 +220,8 @@ def render_markdown(data: ReportData) -> str:
     if data.meta:
         m = data.meta
         out += [
-            f"- 소형 모델: `{m.small}` · 상용 모델: `{m.frontier}` · 판정기: `{m.judge}`",
+            f"- 소형 모델: `{display_identity(m.small)}` · 상용 모델: `{display_identity(m.frontier)}`"
+            f" · 판정기: `{display_identity(m.judge)}`",
             f"- 판정 정책: `{m.policy_version}` · max_tokens: {m.max_tokens} · 수집 시각: {m.created_at}",
             "- 단가(USD/100만 토큰): "
             + ", ".join(

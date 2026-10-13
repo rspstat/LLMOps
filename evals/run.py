@@ -39,7 +39,9 @@ from router.policy import POLICY_VERSION
 DEFAULT_DATASET = "evals/datasets/routing_v1.jsonl"
 DEFAULT_CACHE_DIR = "evals/cache"
 DEFAULT_OUT_DIR = "evals/reports"
-DEFAULT_TAUS = "0.5,0.6,0.7,0.8,0.9"
+# Dense near 1: Jev's probabilities saturate (first real run: min 0.94, median 1.0), so the
+# interesting thresholds are 0.97-0.995, not 0.5-0.9.
+DEFAULT_TAUS = "0.5,0.7,0.9,0.95,0.97,0.98,0.99,0.995"
 DEFAULT_MAX_TOKENS = 64
 MAX_TOKENS_CAP = 256
 

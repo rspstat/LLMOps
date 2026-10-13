@@ -102,6 +102,16 @@ def url_for_display(url: str) -> str:
 _host = url_for_display
 
 
+def display_identity(identity: str) -> str:
+    """A model identity (`kind:model@url[+extra:hash]`) with its URL masked, for reports that may
+    be copied into the repository. The cache key keeps the real URL; only the display changes."""
+    head, at, tail = identity.partition("@")
+    if not at:
+        return identity
+    url, plus, extra = tail.partition("+extra:")
+    return f"{head}@{url_for_display(url)}" + (f"+extra:{extra}" if plus else "")
+
+
 def _alibaba_path_problem(name: str, url: str) -> str | None:
     """Alibaba's OpenAI-compatible endpoint lives under /compatible-mode/v1; the bare API host
     answers every other path with an empty 404."""
