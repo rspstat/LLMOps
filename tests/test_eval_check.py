@@ -51,6 +51,18 @@ def test_a_filled_key_behind_a_mock_switch_is_called_out_the_reported_situation(
     assert_no_secret_printed(text)
 
 
+def test_problems_come_with_the_non_secret_values_so_they_can_be_verified(tmp_path, capsys):
+    env = (
+        f"SLM_MODEL=qwen3.7-flash\nSLM_API_KEY={SECRETS['SLM_API_KEY']}\n"
+        "SLM_BASE_URL=https://x.example.test/compatible-mode/v1\nSMALL_PRICE_IN_PER_MTOK=0.03\n"
+    )  # keys filled but SMALL_PROVIDER still the default mock
+    code, text = check(tmp_path, capsys, env)
+    assert code == 1 and "파일에 적힌 값" in text
+    assert "SLM_MODEL = qwen3.7-flash" in text and "SLM_BASE_URL = https://x.example.test" in text
+    assert "SMALL_PRICE_IN_PER_MTOK = 0.03" in text and "SLM_API_KEY = 채워짐" in text
+    assert_no_secret_printed(text)
+
+
 def test_small_and_frontier_keys_behind_mock_switches_are_called_out_too(tmp_path, capsys):
     env = (
         f"SLM_API_KEY={SECRETS['SLM_API_KEY']}\nSLM_MODEL=tiny\nSMALL_PROVIDER=mock\n"

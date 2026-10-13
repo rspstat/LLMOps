@@ -159,6 +159,9 @@ def _cmd_check(args: argparse.Namespace, settings: Settings | None) -> int:
     print(f"\n고쳐야 할 것 {len(problems)}개:")
     for number, problem in enumerate(problems, start=1):
         print(f"  {number}. {problem}")
+    print("\n파일에 적힌 값 (키는 채워졌는지만 표시):")
+    for line in describe_raw_values(defined):
+        print(f"  {line}")
     return EXIT_ERROR
 
 
