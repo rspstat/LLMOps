@@ -51,6 +51,60 @@ def test_a_filled_key_behind_a_mock_switch_is_called_out_the_reported_situation(
     assert_no_secret_printed(text)
 
 
+LIVE_QWEN = "\n".join(
+    [
+        "SMALL_PROVIDER=slm",
+        "SLM_MODEL=qwen3.7-flash",
+        f"SLM_API_KEY={SECRETS['SLM_API_KEY']}",
+        "SMALL_PRICE_IN_PER_MTOK=0.03",
+        "SMALL_PRICE_OUT_PER_MTOK=0.13",
+        "FRONTIER_PROVIDER=openai",
+        "FRONTIER_MODEL=qwen3.8-max",
+        f"OPENAI_API_KEY={SECRETS['OPENAI_API_KEY']}",
+        "FRONTIER_PRICE_IN_PER_MTOK=2",
+        "FRONTIER_PRICE_OUT_PER_MTOK=6",
+        "JUDGE_PROVIDER=jev",
+        f"JEV_API_KEY={SECRETS['JEV_API_KEY']}",
+        "JEV_PRICE_IN_PER_MTOK=0.042",
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    "bad_url",
+    [
+        "<API Host>/compatible-mode/v1",  # the placeholder left in
+        "abc123.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",  # no scheme
+        "https://<WorkspaceId>.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+        "ftp://example.test/v1",
+        "https:///compatible-mode/v1",
+    ],
+)
+def test_a_base_url_that_is_not_a_real_url_is_reported_for_a_live_model(tmp_path, capsys, bad_url):
+    env = LIVE_QWEN + f"\nSLM_BASE_URL={bad_url}\nFRONTIER_BASE_URL=https://ok.example.test/v1\n"
+    code, text = check(tmp_path, capsys, env)
+    assert code == 1
+    assert "SLM_BASE_URL 이 올바른 URL이 아닙니다" in text and "FRONTIER_BASE_URL 이" not in text
+    assert "SLM_BASE_URL = (URL 형식이 아님)" in text
+    assert bad_url not in text  # the value itself is not echoed
+
+
+def test_valid_base_urls_pass_and_show_only_the_host(tmp_path, capsys):
+    env = (
+        LIVE_QWEN + "\nSLM_BASE_URL=https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+        "\nFRONTIER_BASE_URL=https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+        "\nJEV_BASE_URL=https://api.typesafe.ai/v1/systemone\n"
+    )
+    code, text = check(tmp_path, capsys, env)
+    assert code == 0 and "url=https://ws1.ap-southeast-1.maas.aliyuncs.com" in text
+    assert "compatible-mode" not in text  # paths (which may hold ids) are not shown
+
+
+def test_a_mock_model_is_not_blamed_for_its_unused_default_url(tmp_path, capsys):
+    code, text = check(tmp_path, capsys, "SLM_BASE_URL=not a url\nSMALL_PROVIDER=mock\n")
+    assert code == 0 and "문제 없음" in text
+
+
 def test_problems_come_with_the_non_secret_values_so_they_can_be_verified(tmp_path, capsys):
     env = (
         f"SLM_MODEL=qwen3.7-flash\nSLM_API_KEY={SECRETS['SLM_API_KEY']}\n"

@@ -20,9 +20,31 @@ NOT_READ_BY_PROJECT = ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "HF_TOKEN")
 KNOWN_EXTRAS = {"HF_HOME", "GATEWAY_HOST", "GATEWAY_PORT", "VECTOR_DB_URL"}
 
 
+_HOSTNAME = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$")
+
+
+def _valid_url(url: str) -> bool:
+    """http(s) with a plain hostname. A leftover placeholder like `<API Host>` is not one."""
+    parts = urlsplit(url.strip())
+    try:
+        host = parts.hostname
+    except ValueError:
+        return False
+    return parts.scheme in ("http", "https") and bool(host) and bool(_HOSTNAME.match(host))
+
+
 def _host(url: str) -> str:
-    parts = urlsplit(url)
+    if not _valid_url(url):
+        return "(URL 형식이 아님)"
+    parts = urlsplit(url.strip())
     return f"{parts.scheme}://{parts.hostname}" + (f":{parts.port}" if parts.port else "")
+
+
+def _bad_url_problem(name: str) -> str:
+    return (
+        f"{name} 이 올바른 URL이 아닙니다. `https://` 로 시작해야 하고 `<API Host>` 같은 "
+        "자리표시자가 남아 있으면 안 됩니다."
+    )
 
 
 def _filled(value: str | None) -> bool:
@@ -134,6 +156,8 @@ def diagnose(
             f"소형(small)   : slm  model={s.slm_model}  url={_host(s.slm_base_url)}  {kind}"
             f"{_extra_note(s.slm_extra_body)}"
         )
+        if not _valid_url(s.slm_base_url):
+            problems.append(_bad_url_problem("SLM_BASE_URL"))
         if hosted and not priced:
             problems.append(
                 "소형 모델이 호스팅 API인데 SMALL_PRICE_IN/OUT_PER_MTOK 단가가 0 입니다 "
@@ -154,6 +178,8 @@ def diagnose(
             f"상용(frontier): openai  model={s.frontier_model}  url={_host(s.frontier_base_url)}  키 있음"
             f"{_extra_note(s.frontier_extra_body)}"
         )
+        if not _valid_url(s.frontier_base_url):
+            problems.append(_bad_url_problem("FRONTIER_BASE_URL"))
         if not priced:
             problems.append(
                 "FRONTIER_PRICE_IN/OUT_PER_MTOK 단가가 0 입니다 (제공사 가격표를 보고 채우세요)."
@@ -172,6 +198,8 @@ def diagnose(
         out.append(
             f"판정기(judge) : jev  model={s.jev_model}  url={_host(s.jev_base_url)}  키 있음"
         )
+        if not _valid_url(s.jev_base_url):
+            problems.append(_bad_url_problem("JEV_BASE_URL"))
         if not priced:
             problems.append("JEV_PRICE_IN_PER_MTOK 단가가 0 입니다 (회사 발표 단가는 0.042).")
 
