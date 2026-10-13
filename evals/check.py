@@ -20,7 +20,8 @@ NOT_READ_BY_PROJECT = ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "HF_TOKEN")
 KNOWN_EXTRAS = {"HF_HOME", "GATEWAY_HOST", "GATEWAY_PORT", "VECTOR_DB_URL"}
 
 
-_HOSTNAME = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$")
+# Letters, digits, dots, hyphens and underscores (workspace ids may contain `_`).
+_HOSTNAME = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$")
 
 
 def _valid_url(url: str) -> bool:
@@ -33,6 +34,38 @@ def _valid_url(url: str) -> bool:
     return parts.scheme in ("http", "https") and bool(host) and bool(_HOSTNAME.match(host))
 
 
+def url_problem_reason(url: str) -> str:
+    """Why a URL is rejected, described by kind. The value itself is never part of the text."""
+    text = url.strip()
+    if not text:
+        return "값이 비어 있음"
+    parts = urlsplit(text)
+    reasons = []
+    if not parts.scheme:
+        reasons.append("주소가 `https://` 로 시작하지 않음")
+    elif parts.scheme not in ("http", "https"):
+        reasons.append("앞부분이 `http://` 또는 `https://` 가 아님")
+    try:
+        host = parts.hostname
+    except ValueError:
+        host = None
+        reasons.append("호스트 부분을 해석할 수 없음 (대괄호 등)")
+    if not host:
+        if not any("해석" in r for r in reasons):
+            reasons.append("도메인(호스트) 부분이 비어 있음")
+    else:
+        bad = sorted({c for c in host if not (c.isalnum() or c in ".-_")})
+        if bad:
+            reasons.append("도메인에 허용되지 않는 문자가 있음: " + " ".join(repr(c) for c in bad))
+        elif not _HOSTNAME.match(host):
+            reasons.append("도메인이 점이나 하이픈으로 시작하거나 끝남")
+    if any(c.isspace() for c in text):
+        reasons.append("공백이 들어 있음")
+    if "<" in text or ">" in text or "{" in text or "}" in text:
+        reasons.append("자리표시자(`<API Host>`, `{WorkspaceId}`)가 그대로 남아 있을 수 있음")
+    return "; ".join(reasons) or "형식을 해석할 수 없음"
+
+
 def _host(url: str) -> str:
     if not _valid_url(url):
         return "(URL 형식이 아님)"
@@ -40,10 +73,10 @@ def _host(url: str) -> str:
     return f"{parts.scheme}://{parts.hostname}" + (f":{parts.port}" if parts.port else "")
 
 
-def _bad_url_problem(name: str) -> str:
+def _bad_url_problem(name: str, url: str) -> str:
     return (
-        f"{name} 이 올바른 URL이 아닙니다. `https://` 로 시작해야 하고 `<API Host>` 같은 "
-        "자리표시자가 남아 있으면 안 됩니다."
+        f"{name} 이 올바른 URL이 아닙니다 → {url_problem_reason(url)}. "
+        "형식은 `https://도메인/경로` 입니다."
     )
 
 
@@ -157,7 +190,7 @@ def diagnose(
             f"{_extra_note(s.slm_extra_body)}"
         )
         if not _valid_url(s.slm_base_url):
-            problems.append(_bad_url_problem("SLM_BASE_URL"))
+            problems.append(_bad_url_problem("SLM_BASE_URL", s.slm_base_url))
         if hosted and not priced:
             problems.append(
                 "소형 모델이 호스팅 API인데 SMALL_PRICE_IN/OUT_PER_MTOK 단가가 0 입니다 "
@@ -179,7 +212,7 @@ def diagnose(
             f"{_extra_note(s.frontier_extra_body)}"
         )
         if not _valid_url(s.frontier_base_url):
-            problems.append(_bad_url_problem("FRONTIER_BASE_URL"))
+            problems.append(_bad_url_problem("FRONTIER_BASE_URL", s.frontier_base_url))
         if not priced:
             problems.append(
                 "FRONTIER_PRICE_IN/OUT_PER_MTOK 단가가 0 입니다 (제공사 가격표를 보고 채우세요)."
@@ -199,7 +232,7 @@ def diagnose(
             f"판정기(judge) : jev  model={s.jev_model}  url={_host(s.jev_base_url)}  키 있음"
         )
         if not _valid_url(s.jev_base_url):
-            problems.append(_bad_url_problem("JEV_BASE_URL"))
+            problems.append(_bad_url_problem("JEV_BASE_URL", s.jev_base_url))
         if not priced:
             problems.append("JEV_PRICE_IN_PER_MTOK 단가가 0 입니다 (회사 발표 단가는 0.042).")
 

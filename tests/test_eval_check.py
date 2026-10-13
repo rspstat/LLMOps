@@ -89,6 +89,41 @@ def test_a_base_url_that_is_not_a_real_url_is_reported_for_a_live_model(tmp_path
     assert bad_url not in text  # the value itself is not echoed
 
 
+@pytest.mark.parametrize(
+    ("bad_url", "reason"),
+    [
+        ("<API Host>/compatible-mode/v1", "`https://` 로 시작하지 않음"),
+        ("<API Host>/compatible-mode/v1", "자리표시자"),
+        ("ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1", "`https://` 로 시작하지 않음"),
+        (
+            "https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/v1",
+            "허용되지 않는 문자가 있음: '{' '}'",
+        ),
+        ("https://<ws>.example.test/v1", "허용되지 않는 문자가 있음: '<' '>'"),
+        ("https://exa mple.test/v1", "공백이 들어 있음"),
+        ("ftp://example.test/v1", "`http://` 또는 `https://` 가 아님"),
+        ("https:///compatible-mode/v1", "도메인(호스트) 부분이 비어 있음"),
+    ],
+)
+def test_the_reason_a_url_is_rejected_is_named_without_echoing_it(
+    tmp_path, capsys, bad_url, reason
+):
+    env = LIVE_QWEN + f"\nSLM_BASE_URL={bad_url}\nFRONTIER_BASE_URL=https://ok.example.test/v1\n"
+    code, text = check(tmp_path, capsys, env)
+    assert code == 1 and "SLM_BASE_URL 이 올바른 URL이 아닙니다 →" in text
+    assert reason in text
+    assert bad_url not in text and "maas.aliyuncs" not in text
+
+
+def test_a_host_with_an_underscore_is_accepted(tmp_path, capsys):
+    env = (
+        LIVE_QWEN
+        + "\nSLM_BASE_URL=https://ws_1.example.test/v1\nFRONTIER_BASE_URL=https://ws_1.example.test/v1\n"
+    )
+    code, text = check(tmp_path, capsys, env)
+    assert code == 0 and "url=https://ws_1.example.test" in text
+
+
 def test_valid_base_urls_pass_and_show_only_the_host(tmp_path, capsys):
     env = (
         LIVE_QWEN + "\nSLM_BASE_URL=https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
