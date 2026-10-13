@@ -47,7 +47,7 @@ uv run uvicorn gateway.app:create_app --factory --port 8000   # 게이트웨이 
 ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 frontier, jev
 ```
 
-- `--target jev`는 실제 라우팅 질문(easy/hard)을 Jev에 1회 보낸다. 아직 한 번도 실행하지 않았다(접근 권한·키 없음).
+- `--target jev`는 실제 라우팅 질문(easy/hard)을 Jev에 1회 보낸다. 2026-10-13에 실제로 실행해 어댑터가 맞는 것을 확인했다.
 
 ```bash
 # 라우팅 평가 (evals/README.md)
@@ -73,7 +73,7 @@ ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0
 
 - 사소하지 않은 작업은 **구현 전에 계획을 먼저 제시**하고 승인을 받는다.
 - 한 번에 작은 단위로 진행하고, 변경 후에는 테스트·린트를 실제로 실행해 결과를 확인한다. 실패하면 숨기지 말고 원인과 함께 보고한다.
-- 현재 단계는 README 로드맵의 **3단계(평가 v1)까지 도구 구현 완료, 다음은 4단계(가드 고도화)**다. 단, 평가는 mock으로만 검증했고 **실제 모델·Jev 수치는 아직 없다**(키·접근 권한 대기). 로드맵 밖의 기능은 추가하지 않는다.
+- 현재 단계는 README 로드맵의 **3단계(평가 v1)까지 도구 구현 완료, 다음은 4단계(가드 고도화)**다. 평가는 2026-10-13에 Qwen + Jev로 첫 실측을 했다(`docs/evals/2026-10-13_qwen-first-run.md`, n=80, 라벨 검토 전이라 관찰로 읽을 것). 다음 실험은 다른 제공사 모델 비교, 판정 정책 v2, 보류 데이터 검증이다. 로드맵 밖의 기능은 추가하지 않는다.
 - 외부 API(Jev, 상용 LLM)를 실제로 호출하면 비용이 든다. 테스트는 기본적으로 mock을 쓰고, 실제 호출은 내가 요청할 때만 한다.
 - 파인튜닝은 GPU 제약상 1B 이하 모델 위주로 설계한다.
 

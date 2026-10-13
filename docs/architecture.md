@@ -38,7 +38,7 @@
 - 입력: `state`(판정 근거 전부. 정책 포함)와 `ChoiceQuestion`(질문 키, 지시문, `선택지 → 설명`). 출력: `choice`, 선택지별 `probabilities`, `confidence`, 모델명, 입력·출력 토큰.
 - `validate_decision()`이 라우터에서 한 번 더 검증한다: 모르는 선택지·확률 범위(0~1) 밖·확률 합 1.05 초과는 `ProviderError`로 처리해 잘못된 판정기가 라우팅을 움직이지 못하게 한다.
 - 구현: `MockDecisionProvider`(요청 길이만 보는 결정적 가짜, 장애 주입 가능, 기본값), `JevProvider`(`POST {JEV_BASE_URL}`에 `model` + `state` + `questions{키:{type:"choice", instructions, criteria}}`, 응답 `answers.<키>.{choice, probabilities, confidence}` + `usage`).
-- **`JevProvider`는 공식 문서가 아닌 서드파티 문서(LiteLLM, DigitalOcean)를 근거로 구현했고, 실제 키로 호출해 확인하지 않았다.** `confidence`의 의미와 오류 응답 형식은 문서에 없다. 접근 경로(공식, Vercel AI Gateway, DigitalOcean)마다 URL·모델명이 달라 둘 다 설정이다.
+- **`JevProvider`는 서드파티 문서(LiteLLM, DigitalOcean)를 근거로 구현했고, 2026-10-13에 `api.typesafe.ai`로 실제 호출해 확인했다**(Bearer 인증, `state` + `questions` 요청, `answers.<키>.{choice, probabilities, confidence}`와 `usage` 응답이 모두 일치). 여전히 문서에 없는 것: `confidence`의 의미와 오류 응답 형식. 접근 경로(공식, Vercel AI Gateway, DigitalOcean)마다 URL·모델명이 달라 둘 다 설정이다.
 
 ## 3. 라우팅 정책
 
@@ -94,7 +94,7 @@
 
 ## 6. 평가 설계
 
-> 3단계(구현됨): `evals/`. 모든 도구는 mock으로 검증했고, **실제 모델로 수집한 결과는 아직 없다.**
+> 3단계(구현됨): `evals/`. 도구는 mock으로 검증했고, **2026-10-13에 Qwen + Jev로 첫 실측을 했다** → [결과](evals/2026-10-13_qwen-first-run.md). 표본(n=80)이 작고 라벨이 검토 전이라 관찰로 읽는다.
 
 **질문**: 어떤 라우팅 설정(모드 × 임계값 τ)이 비용을 얼마나 줄이고 정확도를 얼마나 잃는가?
 
@@ -144,7 +144,8 @@
 
 ### 아직 하지 않은 것
 
-- 실제 소형·상용 모델과 Jev로 수집(키·모델 필요) → 이 문서와 리포트에 실수치를 넣어야 한다.
+- 다른 제공사 모델(GPT-6 계열 등)로 같은 평가를 수집해 비교. 지금은 Qwen 한 계열뿐이다.
+- 판정 정책 v2(v1은 80문항 전부 easy로 판정)와 보류 데이터 검증. 임계값을 평가 데이터에서 골랐으므로 낙관적이다.
 - 난이도 라벨 검토. 표본 확대(n=80은 신뢰구간이 넓다).
 - 항목당 반복 측정, LLM-as-judge, 긴 생성 품질 측정.
 
@@ -181,5 +182,9 @@
 | 2026-10-13 | 토큰 한도에 걸려 `content`가 null인 응답은 오류가 아니라 빈 답으로 기록하고, 수집 중과 리포트에서 "빈 응답"을 경고 | 추론 모델은 `max_tokens`를 숨은 추론에 다 써서 답이 비는데, 이는 오답으로 채점되어 모델이 실제보다 약해 보이게 만듦 |
 | 2026-10-13 | `Settings`에 `hide_input_in_errors=True`를 설정하고 `evals.run check`(값 없이 .env 상태를 설명)를 추가 | 설정 검증 오류가 `.env`의 API 키 원문을 그대로 출력하는 것을 테스트로 발견. 증상이 보인 CLI가 아니라 원인인 설정 클래스에서 막아 서버 시작·스모크까지 한 번에 차단 → [트러블슈팅](troubleshooting/2026-10-13_설정-오류에-키-노출.md). 키를 채웠는데 provider가 mock이라 아무 일도 안 일어나는 혼란을 줄이기 위해 `check`도 추가 |
 | 2026-10-13 | 모델 전용 추가 요청 필드를 `SLM_EXTRA_BODY` / `FRONTIER_EXTRA_BODY`(JSON)로 보낼 수 있게 함. 어댑터 고유 필드(model, messages, max_tokens, temperature 등)는 덮어쓸 수 없고, 캐시 키(모델 identity)에 해시로 포함 | Qwen 최신 모델(3.7-flash, 3.8-max 등)은 추론이 기본으로 켜져 있어 `max_tokens=64`에서 빈 답이 남. 끄려면 `enable_thinking:false`가 필요한데 OpenAI 프로토콜에 자리가 없음. 같은 방식이 다른 제공사(Gemini thinking 설정 등)에도 필요. 추론 모드를 바꾸면 답이 달라지므로 캐시를 공유하면 안 됨 |
+| 2026-10-13 | `JevProvider` 실호출 검증 완료: 요청·응답 형식이 서드파티 문서와 일치. 기본값(`rules` + `mock`)은 유지 | 2026-10-13 `scripts/smoke_live.py --target jev` 1회와 80문항 수집에서 확인(`jev-1.13.0`). `confidence`의 의미는 여전히 문서화되지 않음. 위 "미검증" 행을 대체 |
+| 2026-10-13 | 기본 임계값 스윕을 0.5~0.995로 상단을 촘촘히 변경 (`0.5,0.7,0.9,0.95,0.97,0.98,0.99,0.995`) | 첫 실측에서 Jev 확률이 포화(최소 0.94, 중앙값 1.0, 80/80 easy)해 0.5~0.9 구간이 구분력이 없었음. 쓸 만한 구간이 0.99 근처 |
+| 2026-10-13 | 리포트에 찍는 모델 식별자에서 엔드포인트의 계정·워크스페이스 ID 라벨을 가림 (`display_identity`). 캐시 키는 실제 URL을 유지 | 첫 실측 리포트에 Alibaba 워크스페이스 ID가 그대로 들어갔고, 리포트는 docs/로 복사해 커밋하도록 안내돼 있어 공개 저장소로 샐 수 있었음 |
+| 2026-10-13 | 첫 실측 해석: 정책 v1의 Jev는 `hard`를 한 번도 내지 않았지만(80/80 easy) 순위 신호는 있음(AUC 0.935). τ≈0.995에서 `all_frontier`와 같은 정확도(97.5%)에 비용 47% 절감. **임계값을 같은 데이터에서 골랐으므로 낙관적** | [상세](evals/2026-10-13_qwen-first-run.md). 다음은 정책 v2와 보류 데이터 검증 |
 | 2026-10-13 | 리포트는 mock인 구성 요소를 구분해 표시: 판정기만 mock이면 소형·상용·`rules` 수치는 유효, `hybrid`·판정기 품질만 무효 | Jev 접근 전에도 모델 수치를 먼저 얻을 수 있으므로, 유효한 수치까지 일괄 폐기하게 만들지 않기 위해 |
 | 2026-10-13 | 실호출 `collect`는 `ALLOW_LIVE_CALLS=1` + `--budget-usd` 필수, 캐시 키에 모델 identity·정책 버전·`max_tokens` 포함, 리포트는 메타와 키가 맞는 기록만 사용 | 비용 사고 방지, 모델을 바꿔 일부만 다시 수집했을 때 결과가 섞이는 것을 방지 |
