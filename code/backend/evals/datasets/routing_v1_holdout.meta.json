@@ -1,0 +1,10 @@
+{
+  "name": "routing_v1_holdout",
+  "created": "2026-10-19",
+  "authored_by": "Claude (AI assistant), written from scratch for this repo before the judge policy v2 wording existed",
+  "labels_reviewed": false,
+  "items": 60,
+  "frozen": true,
+  "purpose": "held-out check of judge policy v2. Do not tune policy wording or thresholds on this file; measure each candidate once.",
+  "note": "difficulty labels are an unreviewed AI draft; set labels_reviewed to true after a human has checked them. Numeric and code references were computed by a script, not typed."
+}
