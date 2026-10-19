@@ -6,5 +6,6 @@
   "items": 60,
   "frozen": true,
   "purpose": "held-out check of judge policy v2. Do not tune policy wording or thresholds on this file; measure each candidate once.",
-  "note": "difficulty labels are an unreviewed AI draft; set labels_reviewed to true after a human has checked them. Numeric and code references were computed by a script, not typed."
+  "note": "difficulty labels are an unreviewed AI draft; set labels_reviewed to true after a human has checked them. Numeric and code references were computed by a script, not typed.",
+  "consumed": "2026-10-19: judge policy v1 and v2a were each measured once. A further policy change needs a new holdout set."
 }
