@@ -15,20 +15,36 @@ from router.hybrid_router import HybridConfig, HybridRouter
 from router.policy import DEFAULT_POLICY_VERSION, POLICIES, V1, Policy, build_state, get_policy
 from router.rule_router import RuleRouter
 
-# sha256 of build_state("", V1) when v1 was published (2026-10-13). Real measurements, trace
-# events and the evaluation cache are labelled "v1", so its wording must never change: a new
-# wording is a new version.
-V1_STATE_SHA256 = "2617ba8a32df01f502e703460d9ca5735fafbb6411c52994f1200245c5b60f53"
+# sha256 of build_state("", policy) at the moment each version was published. Real measurements,
+# trace events and the evaluation cache are labelled with the version, so a published wording must
+# never change: a new wording is a new version (and a new line here).
+PINNED_STATE_SHA256 = {
+    "v1": "2617ba8a32df01f502e703460d9ca5735fafbb6411c52994f1200245c5b60f53",  # 2026-10-13
+    "v2a": "b424371cf7f5c09155544e9f2cdc9f958d22d42539b3309a0059f91ef508b73f",  # 2026-10-19
+    "v2b": "8e27a9310af355bac6881bd8149609de84d5add7b49256e4115a5294f57d473c",  # 2026-10-19
+}
 
 
-def test_v1_wording_is_frozen():
-    assert hashlib.sha256(build_state("", V1).encode("utf-8")).hexdigest() == V1_STATE_SHA256
+def test_published_wordings_are_frozen():
+    assert set(PINNED_STATE_SHA256) == set(POLICIES), "pin every registered policy version"
+    for version, expected in PINNED_STATE_SHA256.items():
+        state = build_state("", get_policy(version))
+        assert hashlib.sha256(state.encode("utf-8")).hexdigest() == expected, version
+
+
+def test_v1_question_is_frozen():
     assert V1.question.key == "difficulty"
     assert V1.question.instructions == "How difficult is it to answer the request well?"
     assert V1.question.criteria == {
         "easy": "A small model would answer this as well as a large one.",
         "hard": "A large model is needed for a good answer, or it is unclear.",
     }
+
+
+def test_v2_candidates_are_not_longer_than_v1_plus_ten_percent():
+    # The judge is billed per input token on every request; the plan allows +10% over v1.
+    limit = 1.10 * len(build_state("", V1))
+    assert all(len(build_state("", p)) <= limit for p in POLICIES.values())
 
 
 def test_registry_is_consistent():
