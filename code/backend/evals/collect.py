@@ -13,7 +13,7 @@ from providers.base import (
     estimate_tokens,
 )
 from providers.decision import DecisionProvider, validate_decision
-from router.policy import POLICY_VERSION, QUESTION, build_state
+from router.policy import DEFAULT_POLICY_VERSION, Policy, build_state, get_policy
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +30,8 @@ class JudgeTarget:
     provider: DecisionProvider
     identity: str
     price: Price
+    # What the judge is asked; its version is part of the cache key.
+    policy: Policy = field(default_factory=lambda: get_policy(DEFAULT_POLICY_VERSION))
 
 
 @dataclass(slots=True)
@@ -76,7 +78,7 @@ def make_key(
     max_tokens: int,
 ) -> str:
     return key_from_parts(
-        item, small.identity, frontier.identity, judge.identity, POLICY_VERSION, max_tokens
+        item, small.identity, frontier.identity, judge.identity, judge.policy.version, max_tokens
     )
 
 
@@ -114,7 +116,7 @@ def estimate(
     cost = 0.0
     for item in items:
         prompt_tokens = estimate_tokens(item.prompt)
-        judge_tokens = estimate_tokens(build_state(item.prompt))
+        judge_tokens = estimate_tokens(build_state(item.prompt, judge.policy))
         input_tokens += judge_tokens + 2 * prompt_tokens
         cost += judge.price.cost(judge_tokens, 1)
         cost += small.price.cost(prompt_tokens, max_tokens)
@@ -155,8 +157,10 @@ async def _complete(target: ModelTarget, item: EvalItem, max_tokens: int) -> Cal
 async def _judge(target: JudgeTarget, item: EvalItem) -> JudgeCall:
     start = time.perf_counter()
     try:
+        question = target.policy.question
         decision = validate_decision(
-            await target.provider.decide(build_state(item.prompt), QUESTION), QUESTION
+            await target.provider.decide(build_state(item.prompt, target.policy), question),
+            question,
         )
     except Exception as exc:  # same rule as the router: a failing judge is data, not a crash
         error = str(exc) if isinstance(exc, ProviderError) else type(exc).__name__

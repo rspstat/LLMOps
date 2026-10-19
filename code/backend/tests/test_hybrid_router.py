@@ -7,7 +7,7 @@ from providers.decision import REQUEST_MARKER, ChoiceDecision, ChoiceQuestion
 from providers.mock_decision import MockDecisionProvider
 from router.base import Route
 from router.hybrid_router import HybridConfig, HybridRouter
-from router.policy import POLICY_TEXT, POLICY_VERSION, QUESTION, build_state
+from router.policy import V1, build_state
 from router.rule_router import RouterConfig, RuleRouter
 
 
@@ -64,7 +64,7 @@ async def test_confident_easy_goes_to_small():
     assert decision.judge.ok and decision.judge.choice == "easy"
     assert decision.judge.probabilities == {"easy": 0.92, "hard": 0.08}
     assert (decision.judge.input_tokens, decision.judge.output_tokens) == (40, 2)
-    assert decision.judge.policy_version == POLICY_VERSION
+    assert decision.judge.policy_version == V1.version == "v1"
     assert decision.detail["rule_hint"] == "default_small"
 
 
@@ -102,10 +102,10 @@ async def test_judge_receives_policy_question_and_request_text():
     judge = ScriptedJudge(0.9)
     await make_router(judge).route("translate this sentence")
     [(state, question)] = judge.calls
-    assert state == build_state("translate this sentence")
-    assert state.startswith(POLICY_TEXT)
+    assert state == build_state("translate this sentence", V1)
+    assert state.startswith(V1.text)
     assert state.endswith(f"{REQUEST_MARKER}\ntranslate this sentence")
-    assert question is QUESTION
+    assert question is V1.question
 
 
 @pytest.mark.anyio

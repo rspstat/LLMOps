@@ -310,7 +310,9 @@ def diagnose(
         if not priced:
             problems.append("JEV_PRICE_IN_PER_MTOK 단가가 0 입니다 (회사 발표 단가는 0.042).")
 
-    out.append(f"라우터 모드   : {s.router_mode}")
+    out.append(
+        f"라우터 모드   : {s.router_mode}  (판정 정책 {s.router_policy}, 임계값 {s.router_promote_threshold})"
+    )
     if s.judge_provider == "jev" and s.router_mode == "rules":
         out.append(
             "  (참고) ROUTER_MODE=rules 라서 게이트웨이 서버는 판정기를 부르지 않습니다. "

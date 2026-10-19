@@ -1,9 +1,10 @@
 from typing import Any, Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from providers.openai_compat import RESERVED_BODY_KEYS
+from router.policy import DEFAULT_POLICY_VERSION, get_policy
 from router.rule_router import DEFAULT_FRONTIER_KEYWORDS
 
 
@@ -47,6 +48,9 @@ class Settings(BaseSettings):
     router_default_confidence: float = 0.5
     # The small model needs p(easy) >= this from the judge; otherwise the request is promoted.
     router_promote_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    # Which judge policy wording is sent with every request (router/policy.py). Versions are never
+    # edited, so a trace or an evaluation names exactly what the judge was asked.
+    router_policy: str = DEFAULT_POLICY_VERSION
 
     # Judge (closed-set decisions for the router). Defaults to the offline mock, so a Jev key in
     # `.env` is never used unless JUDGE_PROVIDER=jev. JEV_BASE_URL is the full endpoint URL.
@@ -80,6 +84,12 @@ class Settings(BaseSettings):
     small_price_out_per_mtok: float = 0.0
     frontier_price_in_per_mtok: float = 0.0
     frontier_price_out_per_mtok: float = 0.0
+
+    @field_validator("router_policy")
+    @classmethod
+    def _known_policy(cls, value: str) -> str:
+        get_policy(value)  # raises ValueError naming the known versions
+        return value
 
     @model_validator(mode="after")
     def _real_providers_need_their_config(self) -> "Settings":

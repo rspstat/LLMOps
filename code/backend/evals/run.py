@@ -34,7 +34,7 @@ from evals.scorers import RuleScorer
 from gateway.pipeline import Price
 from gateway.settings import Settings
 from gateway.wiring import build_judge, build_registry
-from router.policy import POLICY_VERSION
+from router.policy import get_policy
 
 DEFAULT_DATASET = "evals/datasets/routing_v1.jsonl"
 DEFAULT_CACHE_DIR = "evals/cache"
@@ -65,8 +65,11 @@ def _extra_tag(extra_body: dict) -> str:
     return "+extra:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:8]
 
 
-def build_targets(settings: Settings) -> tuple[ModelTarget, ModelTarget, JudgeTarget]:
+def build_targets(
+    settings: Settings, policy_version: str | None = None
+) -> tuple[ModelTarget, ModelTarget, JudgeTarget]:
     registry = build_registry(settings)
+    policy = get_policy(policy_version or settings.router_policy)
     small_id = (
         "mock:small"
         if settings.small_provider == "mock"
@@ -102,6 +105,7 @@ def build_targets(settings: Settings) -> tuple[ModelTarget, ModelTarget, JudgeTa
             build_judge(settings),
             judge_id,
             Price(settings.jev_price_in_per_mtok, settings.jev_price_out_per_mtok),
+            policy,
         ),
     )
 
@@ -185,7 +189,11 @@ def _cmd_collect(
 ) -> int:
     items = select_items(load_items(args.dataset), args.limit)
     max_tokens = max(1, min(args.max_tokens, MAX_TOKENS_CAP))
-    small, frontier, judge = build_targets(settings)
+    try:
+        small, frontier, judge = build_targets(settings, args.policy)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
     cache = EvalCache(args.cache_dir, args.name)
     todo = pending_items(items, cache, small, frontier, judge, max_tokens)
     est = estimate(todo, small, frontier, judge, max_tokens)
@@ -237,7 +245,7 @@ def _cmd_collect(
             small=small.identity,
             frontier=frontier.identity,
             judge=judge.identity,
-            policy_version=POLICY_VERSION,
+            policy_version=judge.policy.version,
             max_tokens=max_tokens,
             prices={
                 "small": {
@@ -355,6 +363,9 @@ def main(
     named(collect_p)
     collect_p.add_argument("--limit", type=int, help="use a deterministic sample of N items")
     collect_p.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
+    collect_p.add_argument(
+        "--policy", help="judge policy version (default: ROUTER_POLICY, see router/policy.py)"
+    )
     collect_p.add_argument(
         "--budget-usd", type=float, help="stop starting new items once this is spent"
     )

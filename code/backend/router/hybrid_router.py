@@ -1,11 +1,11 @@
 import logging
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from providers.base import ProviderError
 from providers.decision import ChoiceDecision, DecisionProvider, validate_decision
 from router.base import JudgeRecord, Route, RouteDecision
-from router.policy import POLICY_VERSION, QUESTION, build_state
+from router.policy import DEFAULT_POLICY_VERSION, Policy, build_state, get_policy
 from router.rule_router import RuleRouter
 
 logger = logging.getLogger("llmops.router")
@@ -19,6 +19,8 @@ class HybridConfig:
     # Ask the judge for every request instead of letting an explicit rule short-circuit it.
     # Used to compare the rules against the judge on the same traffic.
     judge_only: bool = False
+    # The wording sent to the judge with every request; its version is recorded in the trace.
+    policy: Policy = field(default_factory=lambda: get_policy(DEFAULT_POLICY_VERSION))
 
 
 class HybridRouter:
@@ -41,10 +43,12 @@ class HybridRouter:
         if not self.config.judge_only and rule.route is Route.FRONTIER:
             return rule
 
+        policy = self.config.policy
         start = time.perf_counter()
         try:
             decision = validate_decision(
-                await self.judge.decide(build_state(text), QUESTION), QUESTION
+                await self.judge.decide(build_state(text, policy), policy.question),
+                policy.question,
             )
         except Exception as exc:  # a broken judge must never take request serving down
             # Only ProviderError text is known to be safe to store; other errors keep their type.
@@ -53,7 +57,7 @@ class HybridRouter:
             record = JudgeRecord(
                 provider=self.judge.name,
                 latency_ms=_elapsed_ms(start),
-                policy_version=POLICY_VERSION,
+                policy_version=policy.version,
                 error=error,
             )
             return replace(rule, reason="judge_unavailable", judge=record)
@@ -61,7 +65,7 @@ class HybridRouter:
         record = JudgeRecord(
             provider=self.judge.name,
             latency_ms=_elapsed_ms(start),
-            policy_version=POLICY_VERSION,
+            policy_version=policy.version,
             choice=decision.choice,
             probabilities=dict(decision.probabilities),
             confidence=decision.confidence,
@@ -90,7 +94,7 @@ class HybridRouter:
             detail={
                 "threshold": threshold,
                 "p_easy": p_easy,
-                "policy_version": POLICY_VERSION,
+                "policy_version": self.config.policy.version,
                 "rule_hint": rule.reason,
             },
         )

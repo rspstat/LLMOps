@@ -9,6 +9,7 @@ from providers.openai_compat import OpenAICompatProvider
 from providers.registry import ProviderRegistry
 from router.base import Router
 from router.hybrid_router import HybridConfig, HybridRouter
+from router.policy import get_policy
 from router.rule_router import RouterConfig, RuleRouter
 
 
@@ -71,6 +72,7 @@ def build_router(settings: Settings, judge: DecisionProvider | None = None) -> R
         HybridConfig(
             promote_threshold=settings.router_promote_threshold,
             judge_only=settings.router_mode == "judge_only",
+            policy=get_policy(settings.router_policy),
         ),
     )
 

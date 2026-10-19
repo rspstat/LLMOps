@@ -24,7 +24,7 @@ from gateway.settings import Settings
 from providers.base import ChatMessage, Provider, ProviderError, ProviderRequest
 from providers.jev import JevProvider
 from providers.openai_compat import OpenAICompatProvider
-from router.policy import POLICY_VERSION, QUESTION, build_state
+from router.policy import build_state, get_policy
 
 TIMEOUT_S = 15.0
 JEV_PROMPT_LIMIT = 500  # keep the one judged request small
@@ -90,13 +90,14 @@ def _smoke_jev(
         timeout_s=TIMEOUT_S,
         transport=transport,
     )
-    state = build_state(prompt[:JEV_PROMPT_LIMIT])
+    policy = get_policy(settings.router_policy)
+    state = build_state(prompt[:JEV_PROMPT_LIMIT], policy)
     print(
         f"Calling jev {_host(settings.jev_base_url)} model={settings.jev_model} "
-        f"(policy {POLICY_VERSION}, timeout={TIMEOUT_S:.0f}s)"
+        f"(policy {policy.version}, timeout={TIMEOUT_S:.0f}s)"
     )
     try:
-        decision = asyncio.run(jev.decide(state, QUESTION))
+        decision = asyncio.run(jev.decide(state, policy.question))
     except ProviderError as exc:
         print(f"Call failed: {exc}", file=sys.stderr)
         return EXIT_CALL_FAILED
