@@ -44,11 +44,20 @@ export default function HistoryTable({ entries, selectedId, onSelect }: Props) {
                 >
                   <td>{id}</td>
                   <td>{shorten(prompt)}</td>
-                  <td>{outcome.ok ? "200" : `${outcome.status || "-"} ${outcome.code}`}</td>
                   <td>
-                    {outcome.ok && outcome.info.route
-                      ? ROUTE_LABEL[outcome.info.route] + (outcome.info.fallback ? " ⚠" : "")
-                      : "-"}
+                    <span className={outcome.ok ? "pill ok" : "pill bad"}>
+                      {outcome.ok ? "200" : `${outcome.status || "-"} ${outcome.code}`}
+                    </span>
+                  </td>
+                  <td>
+                    {outcome.ok && outcome.info.route ? (
+                      <span className={`pill route-${outcome.info.route}`}>
+                        {ROUTE_LABEL[outcome.info.route]}
+                        {outcome.info.fallback ? " ⚠" : ""}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
                   </td>
                   <td>{outcome.ok ? formatPEasy(outcome.info.pEasy) : "-"}</td>
                   <td>{outcome.ok ? outcome.model : "-"}</td>

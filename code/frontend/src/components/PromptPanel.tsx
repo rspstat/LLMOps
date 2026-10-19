@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SCENARIOS, type Scenario } from "../scenarios";
+import { SendIcon } from "./Icons";
 
 interface Props {
   pending: boolean;
@@ -30,6 +31,9 @@ export default function PromptPanel({ pending, canSend, onSend, onScenario }: Pr
         />
       </label>
       <button type="button" className="primary" disabled={!ready} onClick={() => onSend(prompt)}>
+        <span className="btn-icon">
+          <SendIcon />
+        </span>
         {pending ? "기다리는 중…" : "보내기"}
       </button>
 
@@ -40,9 +44,11 @@ export default function PromptPanel({ pending, canSend, onSend, onScenario }: Pr
             key={scenario.id}
             type="button"
             className="chip"
+            data-kind={scenario.kind}
             disabled={pending || (!canSend && scenario.apiKey === undefined)}
             onClick={() => onScenario(scenario)}
           >
+            <span className="chip-dot" aria-hidden="true" />
             {scenario.label}
           </button>
         ))}

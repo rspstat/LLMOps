@@ -1,23 +1,34 @@
+import type { CSSProperties } from "react";
 import { formatCost } from "../format";
 import type { Summary } from "../summary";
+import AnimatedNumber from "./AnimatedNumber";
+
+interface Tile {
+  name: string;
+  value: number;
+  tone: "neutral" | "small" | "frontier" | "warn" | "error";
+  format?: (value: number) => string;
+}
 
 export default function SummaryBar({ summary }: { summary: Summary }) {
-  const items: [string, string][] = [
-    ["요청", String(summary.total)],
-    ["소형 선택", String(summary.small)],
-    ["상용 선택", String(summary.frontier)],
-    ["차단 (가드)", String(summary.blocked)],
-    ["오류", String(summary.failed)],
-    ["대체 응답", String(summary.fallbacks)],
-    ["토큰 합계", String(summary.totalTokens)],
-    ["비용 합계", formatCost(summary.totalCostUsd)],
+  const tiles: Tile[] = [
+    { name: "요청", value: summary.total, tone: "neutral" },
+    { name: "소형 선택", value: summary.small, tone: "small" },
+    { name: "상용 선택", value: summary.frontier, tone: "frontier" },
+    { name: "차단 (가드)", value: summary.blocked, tone: "warn" },
+    { name: "오류", value: summary.failed, tone: "error" },
+    { name: "대체 응답", value: summary.fallbacks, tone: "warn" },
+    { name: "토큰 합계", value: summary.totalTokens, tone: "neutral" },
+    { name: "비용 합계", value: summary.totalCostUsd, tone: "neutral", format: formatCost },
   ];
   return (
     <ul className="summary" aria-label="요약">
-      {items.map(([name, value]) => (
-        <li key={name}>
-          <span className="summary-value">{value}</span>
-          <span className="summary-name">{name}</span>
+      {tiles.map((tile, index) => (
+        <li key={tile.name} data-tone={tile.tone} style={{ "--i": index } as CSSProperties}>
+          <span className="summary-value">
+            <AnimatedNumber value={tile.value} format={tile.format} durationMs={600} />
+          </span>
+          <span className="summary-name">{tile.name}</span>
         </li>
       ))}
     </ul>
