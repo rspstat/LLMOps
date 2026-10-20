@@ -2,12 +2,12 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from gateway.demo import DEFAULT_DEMO_DIR, register_demo_ui
 from gateway.errors import register_error_handlers
 from gateway.middleware import RequestIdMiddleware
 from gateway.routes import router
 from gateway.settings import Settings
 from gateway.trace import TraceStore, create_trace_store
+from gateway.web import DEFAULT_WEB_DIR, register_web_ui
 from gateway.wiring import build_pipeline, build_registry
 from providers.decision import DecisionProvider
 from providers.registry import ProviderRegistry
@@ -19,9 +19,9 @@ def create_app(
     trace_store: TraceStore | None = None,
     providers: ProviderRegistry | None = None,
     judge: DecisionProvider | None = None,
-    demo_dir: Path = DEFAULT_DEMO_DIR,
+    web_dir: Path = DEFAULT_WEB_DIR,
 ) -> FastAPI:
-    """Build the gateway. `trace_store`, `providers`, `judge`, `demo_dir` let tests inject fakes."""
+    """Build the gateway. `trace_store`, `providers`, `judge`, `web_dir` let tests inject fakes."""
     settings = settings or Settings()
     app = FastAPI(title="LLMOps Gateway")
     app.state.settings = settings
@@ -30,6 +30,6 @@ def create_app(
     app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)
     app.include_router(router)
-    if settings.demo_ui_enabled:
-        register_demo_ui(app, demo_dir)
+    if settings.web_ui_enabled:
+        register_web_ui(app, web_dir)
     return app

@@ -3,7 +3,7 @@
 (function () {
   var stored = null;
   try {
-    stored = window.localStorage.getItem("llmops-demo-theme");
+    stored = window.localStorage.getItem("llmops-theme");
   } catch (e) {
     // storage can be blocked (private windows, site data off): fall back to the system setting
   }

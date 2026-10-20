@@ -48,7 +48,7 @@ export default function App() {
             </span>
             <div>
               <h1>
-                <span className="gradient-text">LLMOps Gateway</span> 데모
+                <span className="gradient-text">LLMOps Gateway</span>
               </h1>
               <p className="muted">
                 질문 하나가 입력 가드 → 라우팅 → 모델 호출을 거치는 과정을 보여 줍니다. 경로·사유·p(easy)·

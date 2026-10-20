@@ -1,7 +1,7 @@
 export type Theme = "light" | "dark";
 
 /** Same key as public/theme-init.js. Only the theme name is stored, never anything sensitive. */
-export const THEME_STORAGE_KEY = "llmops-demo-theme";
+export const THEME_STORAGE_KEY = "llmops-theme";
 
 /** A saved choice wins; otherwise follow the operating system. */
 export function resolveTheme(stored: string | null, systemPrefersDark: boolean): Theme {

@@ -1,7 +1,7 @@
 import type { ChatOutcome, Route, RouteInfo } from "./types";
 
 const CHAT_URL = "/v1/chat/completions";
-const DEMO_MAX_TOKENS = 64; // keeps a demo request cheap
+const CHAT_MAX_TOKENS = 64; // keeps every request sent from the page cheap
 
 export interface SendOptions {
   fetchImpl?: typeof fetch;
@@ -56,7 +56,7 @@ export async function sendChat(
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         messages: [{ role: "user", content: prompt }],
-        max_tokens: DEMO_MAX_TOKENS,
+        max_tokens: CHAT_MAX_TOKENS,
       }),
       signal: options.signal,
     });

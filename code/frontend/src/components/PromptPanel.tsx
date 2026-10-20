@@ -37,7 +37,7 @@ export default function PromptPanel({ pending, canSend, onSend, onScenario }: Pr
         {pending ? "기다리는 중…" : "보내기"}
       </button>
 
-      <h3>시나리오</h3>
+      <h3>예시 요청</h3>
       <div className="chips">
         {SCENARIOS.map((scenario) => (
           <button
@@ -54,7 +54,7 @@ export default function PromptPanel({ pending, canSend, onSend, onScenario }: Pr
         ))}
       </div>
       {!canSend && (
-        <p className="hint">키를 입력하면 보낼 수 있습니다. 틀린 키 시나리오는 키 없이도 됩니다.</p>
+        <p className="hint">키를 입력하면 보낼 수 있습니다. 틀린 키 예시는 키 없이도 보낼 수 있습니다.</p>
       )}
     </section>
   );

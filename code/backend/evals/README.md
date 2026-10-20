@@ -18,8 +18,8 @@ routing_v1.jsonl ──collect──▶ cache/<이름>.jsonl ──report──�
 
 ```bash
 uv run python -m evals.run validate                          # 데이터셋 검사
-uv run python -m evals.run collect --name demo --limit 20    # 기본 mock: 키 없이 전체 흐름 확인
-uv run python -m evals.run report  --name demo               # 리포트 생성
+uv run python -m evals.run collect --name sample --limit 20    # 기본 mock: 키 없이 전체 흐름 확인
+uv run python -m evals.run report  --name sample             # 리포트 생성
 
 # 실제 모델: .env 에 SMALL_PROVIDER / FRONTIER_PROVIDER / JUDGE_PROVIDER 와 키를 설정한 뒤
 uv run python -m evals.run collect --name real --dry-run     # 호출 수·예상 비용 상한만 출력
