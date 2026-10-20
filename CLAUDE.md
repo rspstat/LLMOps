@@ -21,7 +21,7 @@ FastAPI 기반 **LLM 게이트웨이**: 입력 가드 → 라우팅 엔진 → �
 ## 기술 스택
 
 - Python 3.11+, FastAPI, Pydantic v2, pytest, ruff
-- 시연 화면: React + Vite + TypeScript, vitest (`code/frontend`). 의존성은 `package.json`/`package-lock.json`으로 관리한다.
+- 웹 화면: React + Vite + TypeScript, vitest (`code/frontend`). 의존성은 `package.json`/`package-lock.json`으로 관리한다.
 - 저장소: PostgreSQL(+pgvector 또는 Qdrant) 예정. 확정되면 `docs/architecture.md`의 결정 기록에 남긴다.
 - 의존성은 `pyproject.toml`로 관리하고 꼭 필요한 것만 추가한다. 새 의존성을 추가할 땐 이유를 한 줄로 설명한다.
 
@@ -47,8 +47,8 @@ ALLOW_LIVE_CALLS=1 uv run python -m scripts.smoke_live --target slm   # 또는 f
 ```bash
 # 라우팅 평가 (code/backend/evals/README.md)
 uv run python -m evals.run validate                         # 데이터셋 검사
-uv run python -m evals.run collect --name demo --limit 20   # 기본 mock, 호출 없음
-uv run python -m evals.run report  --name demo              # code/backend/evals/reports/demo/report.md
+uv run python -m evals.run collect --name sample --limit 20   # 기본 mock, 호출 없음
+uv run python -m evals.run report  --name sample            # code/backend/evals/reports/sample/report.md
 uv run python -m evals.run collect --name real --dry-run    # 실제 provider: 예상 호출 수·비용 상한만 출력
 # 실호출 수집 — 비용 발생. 내가 요청할 때만 실행한다 (ALLOW_LIVE_CALLS=1 과 --budget-usd 필수).
 ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0.25
@@ -60,7 +60,7 @@ ALLOW_LIVE_CALLS=1 uv run python -m evals.run collect --name real --budget-usd 0
 - 소형 모델이 호스팅 API이면 `SLM_API_KEY`를 채운다 (자체 서빙이면 비움).
 - 라우팅 모드는 `ROUTER_MODE`(rules | hybrid | judge_only), 판정기는 `JUDGE_PROVIDER`(mock | jev). 기본은 `rules` + `mock`이라 외부 호출이 없다.
 
-시연 화면(`code/frontend`)은 npm으로 관리한다. 게이트웨이가 빌드 결과를 `/demo`로 서빙한다(`DEMO_UI_ENABLED`).
+웹 화면(`code/frontend`)은 npm으로 관리한다. 게이트웨이가 빌드 결과를 `/`로 서빙한다(`WEB_UI_ENABLED`).
 
 ```bash
 cd code/frontend
@@ -68,7 +68,7 @@ npm ci            # 의존성 설치
 npm run typecheck # 타입 검사 (tsc --noEmit)
 npm test          # 단위 테스트 (vitest)
 npm run build     # code/frontend/dist 생성
-npm run dev       # 개발 서버 http://localhost:5173/demo/ (API는 8000 포트로 프록시)
+npm run dev       # 개발 서버 http://localhost:5173/ (API는 8000 포트로 프록시)
 ```
 
 - Windows PowerShell에서는 `$env:ALLOW_LIVE_CALLS = "1"; uv run python -m scripts.smoke_live --target slm`.

@@ -16,7 +16,6 @@ LLM 요청이 지나가는 하나의 경로(**입력 가드 → 라우팅 → �
 | Jev | 선택지가 정해진 판정(분류, yes/no + 확률, 점수) |
 | 소형 오픈소스 모델 (Transformers / vLLM) | 쉬운 질의 응답, 직접 파인튜닝한 분류기·judge |
 | 상용 API LLM | 어려운 추론, 긴 답변, 평가 기준(reference) 생성 |
-| 임베딩·리랭커 | 검색 (시연 앱의 RAG) |
 
 Jev를 포함한 어떤 provider도 같은 인터페이스로 교체할 수 있게 설계하며, 같은 판정을 여러 방식으로 돌려 비교하는 것 자체가 평가 항목이다.
 
@@ -39,7 +38,7 @@ flowchart LR
 
 ## 디렉터리 구조
 
-Python 백엔드는 모두 `code/backend/` 아래에, 시연 화면(React)은 `code/frontend/`에 있다. 문서(설계, 결정 기록, 평가 결과)는 루트의 `docs/`이다. `code/frontend/`는 [시연 화면](#시연-화면)을 참고한다.
+Python 백엔드는 모두 `code/backend/` 아래에, 웹 화면(React)은 `code/frontend/`에 있다. 문서(설계, 결정 기록, 평가 결과)는 루트의 `docs/`이다. `code/frontend/`는 [웹 화면](#웹-화면)을 참고한다.
 
 | 경로 (`code/backend/` 기준) | 설명 |
 |---|---|
@@ -58,7 +57,7 @@ Python 백엔드는 모두 `code/backend/` 아래에, 시연 화면(React)은 `c
 - [ ] **4. 가드 고도화**: 인젝션·PII 탐지, 공격 프롬프트 자동 생성, 방어율 측정
 - [ ] **5. 파인튜닝**: 라우팅/가드 분류기, 소형 judge (1B 이하 모델 위주)
 - [ ] **6. 벤치마크**: LLM 단독 vs 하이브리드, Jev vs 파인튜닝 분류기 vs LLM judge
-- [ ] **7. 마무리**: 대시보드 정리, 시연 영상, 회고 (최소 시연 화면은 먼저 구현함: [시연 화면](#시연-화면))
+- [ ] **7. 마무리**: 대시보드 정리, 회고 (최소 웹 화면은 먼저 구현함: [웹 화면](#웹-화면))
 
 ## 시작하기
 
@@ -72,7 +71,7 @@ cp .env.example .env   # PowerShell: Copy-Item .env.example .env
 uv run uvicorn gateway.app:create_app --factory --port 8000
 ```
 
-기본 설정은 오프라인 mock provider라서 API 키 없이 바로 시연할 수 있다.
+기본 설정은 오프라인 mock provider라서 API 키 없이 바로 실행해 볼 수 있다.
 
 ```bash
 curl http://localhost:8000/v1/chat/completions \
@@ -89,21 +88,21 @@ uv run pytest                                        # 테스트 (네트워크 �
 uv run ruff check . && uv run ruff format --check .  # 린트
 ```
 
-### 시연 화면
+### 웹 화면
 
-질문을 보내면 경로·사유·`p(easy)`·모델·토큰·비용·지연이 한 화면에 보이는 React 앱이다. 게이트웨이가 빌드 결과를 `/demo`로 서빙한다.
+질문을 보내면 경로·사유·`p(easy)`·모델·토큰·비용·지연이 한 화면에 보이는 React 앱이다. 게이트웨이가 빌드 결과를 `/`로 서빙한다.
 
 ```bash
 cd code/frontend
 npm ci            # 의존성 설치
-npm run build     # code/frontend/dist 생성 (게이트웨이가 /demo 로 제공)
-# 게이트웨이를 켜고 http://localhost:8000/demo/ 를 엽니다. 키는 화면의 입력칸에 넣습니다(저장되지 않음).
-npm run dev       # 개발 서버 http://localhost:5173/demo/ (API는 8000 포트의 게이트웨이로 프록시)
+npm run build     # code/frontend/dist 생성 (게이트웨이가 / 로 제공)
+# 게이트웨이를 켜고 http://localhost:8000/ 를 엽니다. 키는 화면의 입력칸에 넣습니다(저장되지 않음).
+npm run dev       # 개발 서버 http://localhost:5173/ (API는 8000 포트의 게이트웨이로 프록시)
 npm test          # 단위 테스트
 ```
 
 - `p(easy)`는 `ROUTER_MODE=hybrid`(또는 `judge_only`)에서 판정기를 거친 요청에만 표시된다. 실제 Jev로 보려면 `JUDGE_PROVIDER=jev`와 `ROUTER_PROMOTE_THRESHOLD=0.995` 같은 값이 필요하다.
-- 화면을 끄려면 `DEMO_UI_ENABLED=false`. 빌드하지 않으면 `/demo`는 빌드 안내와 함께 503을 돌려준다.
+- 화면을 끄려면 `WEB_UI_ENABLED=false`(API만 동작). 빌드하지 않으면 `/`는 빌드 안내와 함께 503을 돌려준다.
 - 이력 표는 이번 접속에서 보낸 요청만 보여 주며 서버에 저장하지 않는다.
 - **라이트/다크 모드**: 처음에는 OS 설정을 따르고, 오른쪽 위 토글로 바꾼다(선택은 이 브라우저에만 기억).
 - **애니메이션**: 요청이 `입력 가드 → 라우터 → 모델 → 응답`을 지나는 과정, 답변 타이핑, `p(easy)` 게이지, 숫자 카운트업 등. OS에서 "동작 줄이기"를 켜 두면 모두 꺼진다.
@@ -125,8 +124,8 @@ npm test          # 단위 테스트
 라우팅 설정을 바꿨을 때 비용·지연·정확도가 어떻게 달라지는지 측정한다. 판정기·소형 모델·상용 모델을 항목당 한 번씩만 호출해 캐시하고, 모드와 임계값(τ)을 바꾼 비교는 캐시를 재생해서 계산하므로 τ를 훑어도 추가 비용이 없다.
 
 ```bash
-uv run python -m evals.run collect --name demo --limit 20   # 기본 mock, 키 없이 실행
-uv run python -m evals.run report  --name demo              # code/backend/evals/reports/demo/report.md
+uv run python -m evals.run collect --name sample --limit 20   # 기본 mock, 키 없이 실행
+uv run python -m evals.run report  --name sample            # code/backend/evals/reports/sample/report.md
 ```
 
 데이터셋(영어·한국어 80개)은 AI가 작성했고 난이도 라벨은 검토 전이다. mock으로 만든 리포트는 파이프라인이 동작한다는 것만 보여 주며 정확도·비용 수치에는 의미가 없다 (리포트 상단에 경고가 표시된다). 자세한 내용은 [code/backend/evals/README.md](code/backend/evals/README.md).
