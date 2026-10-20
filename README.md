@@ -2,8 +2,6 @@
 
 LLM gateway with guardrails, cost-aware routing (rules · Jev · open-source SLMs · frontier APIs), and automated evaluation. Built with FastAPI.
 
-> 2026-2학기 충북대학교 소프트웨어학부 AI 활용 대회 출품 프로젝트 (개발 진행 중)
->
 > 이 서비스가 **무엇을 제공하는지**(기능 요구사항, 현재 상태, 범위 밖)는 [docs/product.md](docs/product.md)에 정리했습니다.
 
 ## 개요
@@ -41,7 +39,7 @@ flowchart LR
 
 ## 디렉터리 구조
 
-Python 백엔드는 모두 `code/backend/` 아래에, 시연 화면(React)은 `code/frontend/`에 있습니다. 문서(설계, 발표 자료, `ai-log/`의 AI 대화 기록)는 루트의 `docs/`입니다. `code/frontend/`는 [시연 화면](#시연-화면)을 보세요.
+Python 백엔드는 모두 `code/backend/` 아래에, 시연 화면(React)은 `code/frontend/`에 있습니다. 문서(설계, 결정 기록, 평가 결과)는 루트의 `docs/`입니다. `code/frontend/`는 [시연 화면](#시연-화면)을 보세요.
 
 | 경로 (`code/backend/` 기준) | 설명 |
 |---|---|
@@ -134,7 +132,3 @@ uv run python -m evals.run report  --name demo              # code/backend/evals
 데이터셋(영어·한국어 80개)은 AI가 작성했고 난이도 라벨은 검토 전입니다. mock으로 만든 리포트는 파이프라인이 동작한다는 것만 보여 주며 정확도·비용 수치에는 의미가 없습니다 (리포트 상단에 경고가 표시됩니다). 자세한 내용은 [code/backend/evals/README.md](code/backend/evals/README.md).
 
 현재 구현 범위(로드맵 0~3단계): 규칙 기반 입력 가드 · 규칙/판정 하이브리드 라우터 · 비스트리밍 `/v1/chat/completions` · SQLite trace · 라우팅 평가 도구. 출력 가드, 스트리밍은 이후 단계입니다.
-
-## AI 활용 기록
-
-대회 규정에 따라 AI와의 대화 기록을 `docs/ai-log/` 에 날짜별로 보관합니다. 작성 방법은 [docs/ai-log/README.md](docs/ai-log/README.md) 를 참고하세요.
