@@ -2,13 +2,13 @@
 
 LLM gateway with guardrails, cost-aware routing (rules · Jev · open-source SLMs · frontier APIs), and automated evaluation. Built with FastAPI.
 
-> 이 서비스가 **무엇을 제공하는지**(기능 요구사항, 현재 상태, 범위 밖)는 [docs/product.md](docs/product.md)에 정리했습니다.
+> 이 서비스가 **무엇을 제공하는지**(기능 요구사항, 현재 상태, 범위 밖)는 [docs/product.md](docs/product.md)에 정리했다.
 
 ## 개요
 
-LLM 요청이 지나가는 하나의 경로(**입력 가드 → 라우팅 → 모델 호출 → 출력 가드**)를 FastAPI 게이트웨이로 만들고, 모든 단계를 기록해 **설정을 바꿀 때마다 비용·지연·정확도·방어율을 자동으로 측정**하는 것이 목표입니다.
+LLM 요청이 지나가는 하나의 경로(**입력 가드 → 라우팅 → 모델 호출 → 출력 가드**)를 FastAPI 게이트웨이로 만들고, 모든 단계를 기록해 **설정을 바꿀 때마다 비용·지연·정확도·방어율을 자동으로 측정**하는 것이 목표이다.
 
-핵심 원칙은 **역할 분리**입니다. 하나의 모델에 모든 것을 맡기지 않고, 일의 성격에 맞는 도구를 배치합니다.
+핵심 원칙은 **역할 분리**이다. 하나의 모델에 모든 것을 맡기지 않고, 일의 성격에 맞는 도구를 배치한다.
 
 | 구성요소 | 맡는 역할 |
 |---|---|
@@ -18,7 +18,7 @@ LLM 요청이 지나가는 하나의 경로(**입력 가드 → 라우팅 → �
 | 상용 API LLM | 어려운 추론, 긴 답변, 평가 기준(reference) 생성 |
 | 임베딩·리랭커 | 검색 (시연 앱의 RAG) |
 
-Jev를 포함한 어떤 provider도 같은 인터페이스로 교체할 수 있게 설계하며, 같은 판정을 여러 방식으로 돌려 비교하는 것 자체가 평가 항목입니다.
+Jev를 포함한 어떤 provider도 같은 인터페이스로 교체할 수 있게 설계하며, 같은 판정을 여러 방식으로 돌려 비교하는 것 자체가 평가 항목이다.
 
 ## 아키텍처
 
@@ -39,7 +39,7 @@ flowchart LR
 
 ## 디렉터리 구조
 
-Python 백엔드는 모두 `code/backend/` 아래에, 시연 화면(React)은 `code/frontend/`에 있습니다. 문서(설계, 결정 기록, 평가 결과)는 루트의 `docs/`입니다. `code/frontend/`는 [시연 화면](#시연-화면)을 보세요.
+Python 백엔드는 모두 `code/backend/` 아래에, 시연 화면(React)은 `code/frontend/`에 있다. 문서(설계, 결정 기록, 평가 결과)는 루트의 `docs/`이다. `code/frontend/`는 [시연 화면](#시연-화면)을 참고한다.
 
 | 경로 (`code/backend/` 기준) | 설명 |
 |---|---|
@@ -62,7 +62,7 @@ Python 백엔드는 모두 `code/backend/` 아래에, 시연 화면(React)은 `c
 
 ## 시작하기
 
-필요한 것: [uv](https://docs.astral.sh/uv/) (Python 3.12는 uv가 자동으로 받습니다).
+필요한 것: [uv](https://docs.astral.sh/uv/) (Python 3.12는 uv가 자동으로 받는다).
 
 ```bash
 cd code/backend        # 이하 Python 명령은 모두 여기서 실행합니다 (.env도 이 폴더에 둡니다)
@@ -72,7 +72,7 @@ cp .env.example .env   # PowerShell: Copy-Item .env.example .env
 uv run uvicorn gateway.app:create_app --factory --port 8000
 ```
 
-기본 설정은 오프라인 mock provider라서 API 키 없이 바로 시연할 수 있습니다.
+기본 설정은 오프라인 mock provider라서 API 키 없이 바로 시연할 수 있다.
 
 ```bash
 curl http://localhost:8000/v1/chat/completions \
@@ -80,9 +80,9 @@ curl http://localhost:8000/v1/chat/completions \
   -d '{"messages":[{"role":"user","content":"안녕하세요"}]}'
 ```
 
-- 응답 헤더의 `X-Request-ID`가 trace의 키입니다. 기본 저장소는 `code/backend/data/traces.sqlite3`(SQLite, 커밋되지 않음)이며 단계별(`guard` → `router` → `provider`) 판정·토큰·비용·지연이 기록됩니다.
-- 입력 가드가 막으면 400입니다. 라우팅된 모델이 실패하면 다른 경로의 실제 모델이 대신 답하고(응답 헤더 `X-LLMOps-Fallback: true`, trace에 기록), 모두 실패하면 502입니다. 응답 헤더 `X-LLMOps-Route` / `X-LLMOps-Route-Reason` / `X-LLMOps-P-Easy`로 라우팅 결정도 볼 수 있습니다.
-- 실제 모델 연결은 `.env`의 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`로 켭니다. 한 번만 실제 호출을 확인하는 스모크 스크립트는 `scripts/smoke_live.py`(기본 비활성)입니다.
+- 응답 헤더의 `X-Request-ID`가 trace의 키이다. 기본 저장소는 `code/backend/data/traces.sqlite3`(SQLite, 커밋되지 않음)이며 단계별(`guard` → `router` → `provider`) 판정·토큰·비용·지연이 기록된다.
+- 입력 가드가 막으면 400이다. 라우팅된 모델이 실패하면 다른 경로의 실제 모델이 대신 답하고(응답 헤더 `X-LLMOps-Fallback: true`, trace에 기록), 모두 실패하면 502이다. 응답 헤더 `X-LLMOps-Route` / `X-LLMOps-Route-Reason` / `X-LLMOps-P-Easy`로 라우팅 결정도 볼 수 있다.
+- 실제 모델 연결은 `.env`의 `SMALL_PROVIDER` / `FRONTIER_PROVIDER`로 켠다. 한 번만 실제 호출을 확인하는 스모크 스크립트는 `scripts/smoke_live.py`(기본 비활성)이다.
 
 ```bash
 uv run pytest                                        # 테스트 (네트워크 없음, code/backend에서)
@@ -91,7 +91,7 @@ uv run ruff check . && uv run ruff format --check .  # 린트
 
 ### 시연 화면
 
-질문을 보내면 경로·사유·`p(easy)`·모델·토큰·비용·지연이 한 화면에 보이는 React 앱입니다. 게이트웨이가 빌드 결과를 `/demo`로 서빙합니다.
+질문을 보내면 경로·사유·`p(easy)`·모델·토큰·비용·지연이 한 화면에 보이는 React 앱이다. 게이트웨이가 빌드 결과를 `/demo`로 서빙한다.
 
 ```bash
 cd code/frontend
@@ -102,15 +102,15 @@ npm run dev       # 개발 서버 http://localhost:5173/demo/ (API는 8000 포�
 npm test          # 단위 테스트
 ```
 
-- `p(easy)`는 `ROUTER_MODE=hybrid`(또는 `judge_only`)에서 판정기를 거친 요청에만 표시됩니다. 실제 Jev로 보려면 `JUDGE_PROVIDER=jev`와 `ROUTER_PROMOTE_THRESHOLD=0.995` 같은 값이 필요합니다.
-- 화면을 끄려면 `DEMO_UI_ENABLED=false`. 빌드하지 않으면 `/demo`는 빌드 안내와 함께 503을 돌려줍니다.
-- 이력 표는 이번 접속에서 보낸 요청만 보여 주며 서버에 저장하지 않습니다.
-- **라이트/다크 모드**: 처음에는 OS 설정을 따르고, 오른쪽 위 토글로 바꿉니다(선택은 이 브라우저에만 기억).
-- **애니메이션**: 요청이 `입력 가드 → 라우터 → 모델 → 응답`을 지나는 과정, 답변 타이핑, `p(easy)` 게이지, 숫자 카운트업 등. OS에서 "동작 줄이기"를 켜 두면 모두 꺼집니다.
+- `p(easy)`는 `ROUTER_MODE=hybrid`(또는 `judge_only`)에서 판정기를 거친 요청에만 표시된다. 실제 Jev로 보려면 `JUDGE_PROVIDER=jev`와 `ROUTER_PROMOTE_THRESHOLD=0.995` 같은 값이 필요하다.
+- 화면을 끄려면 `DEMO_UI_ENABLED=false`. 빌드하지 않으면 `/demo`는 빌드 안내와 함께 503을 돌려준다.
+- 이력 표는 이번 접속에서 보낸 요청만 보여 주며 서버에 저장하지 않는다.
+- **라이트/다크 모드**: 처음에는 OS 설정을 따르고, 오른쪽 위 토글로 바꾼다(선택은 이 브라우저에만 기억).
+- **애니메이션**: 요청이 `입력 가드 → 라우터 → 모델 → 응답`을 지나는 과정, 답변 타이핑, `p(easy)` 게이지, 숫자 카운트업 등. OS에서 "동작 줄이기"를 켜 두면 모두 꺼진다.
 
 ### 라우팅 모드 (2단계)
 
-`.env`의 `ROUTER_MODE`로 고릅니다. 기본값 `rules`는 규칙만 쓰고 판정기를 호출하지 않습니다.
+`.env`의 `ROUTER_MODE`로 고른다. 기본값 `rules`는 규칙만 쓰고 판정기를 호출하지 않는다.
 
 | 모드 | 동작 |
 |---|---|
@@ -118,17 +118,17 @@ npm test          # 단위 테스트
 | `hybrid` | 규칙에 걸리면 확정, 아니면 판정기(Jev)가 easy/hard와 확률을 판정. `p(easy) ≥ ROUTER_PROMOTE_THRESHOLD`(0.7)일 때만 소형 모델, 아니면 상용 모델로 승격 |
 | `judge_only` | 항상 판정기에 질의 (규칙과 비교 실험용) |
 
-`JUDGE_PROVIDER`의 기본값은 오프라인 mock(요청 길이만 보는 가짜)이라 키 없이 동작을 볼 수 있지만, 라우팅 품질의 근거는 아닙니다. 실제 Jev는 `JUDGE_PROVIDER=jev`와 `JEV_API_KEY`가 필요하며, 어댑터는 서드파티 문서를 기준으로 작성했고 2026-10-13에 실제 호출로 확인했습니다. 판정 호출은 trace에 `judge` 이벤트(확률, 토큰, 비용, 지연, 정책 버전)로 남습니다. 정책 문구는 [docs/prompts/router-policy-v1.md](docs/prompts/router-policy-v1.md)에 있습니다.
+`JUDGE_PROVIDER`의 기본값은 오프라인 mock(요청 길이만 보는 가짜)이라 키 없이 동작을 볼 수 있지만, 라우팅 품질의 근거는 아니다. 실제 Jev는 `JUDGE_PROVIDER=jev`와 `JEV_API_KEY`가 필요하며, 어댑터는 서드파티 문서를 기준으로 작성했고 2026-10-13에 실제 호출로 확인했다. 판정 호출은 trace에 `judge` 이벤트(확률, 토큰, 비용, 지연, 정책 버전)로 남는다. 정책 문구는 [docs/prompts/router-policy-v1.md](docs/prompts/router-policy-v1.md)에 있다.
 
 ### 평가 (3단계)
 
-라우팅 설정을 바꿨을 때 비용·지연·정확도가 어떻게 달라지는지 측정합니다. 판정기·소형 모델·상용 모델을 항목당 한 번씩만 호출해 캐시하고, 모드와 임계값(τ)을 바꾼 비교는 캐시를 재생해서 계산하므로 τ를 훑어도 추가 비용이 없습니다.
+라우팅 설정을 바꿨을 때 비용·지연·정확도가 어떻게 달라지는지 측정한다. 판정기·소형 모델·상용 모델을 항목당 한 번씩만 호출해 캐시하고, 모드와 임계값(τ)을 바꾼 비교는 캐시를 재생해서 계산하므로 τ를 훑어도 추가 비용이 없다.
 
 ```bash
 uv run python -m evals.run collect --name demo --limit 20   # 기본 mock, 키 없이 실행
 uv run python -m evals.run report  --name demo              # code/backend/evals/reports/demo/report.md
 ```
 
-데이터셋(영어·한국어 80개)은 AI가 작성했고 난이도 라벨은 검토 전입니다. mock으로 만든 리포트는 파이프라인이 동작한다는 것만 보여 주며 정확도·비용 수치에는 의미가 없습니다 (리포트 상단에 경고가 표시됩니다). 자세한 내용은 [code/backend/evals/README.md](code/backend/evals/README.md).
+데이터셋(영어·한국어 80개)은 AI가 작성했고 난이도 라벨은 검토 전이다. mock으로 만든 리포트는 파이프라인이 동작한다는 것만 보여 주며 정확도·비용 수치에는 의미가 없다 (리포트 상단에 경고가 표시된다). 자세한 내용은 [code/backend/evals/README.md](code/backend/evals/README.md).
 
-현재 구현 범위(로드맵 0~3단계): 규칙 기반 입력 가드 · 규칙/판정 하이브리드 라우터 · 비스트리밍 `/v1/chat/completions` · SQLite trace · 라우팅 평가 도구. 출력 가드, 스트리밍은 이후 단계입니다.
+현재 구현 범위(로드맵 0~3단계): 규칙 기반 입력 가드 · 규칙/판정 하이브리드 라우터 · 비스트리밍 `/v1/chat/completions` · SQLite trace · 라우팅 평가 도구. 출력 가드, 스트리밍은 이후 단계이다.
