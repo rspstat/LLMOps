@@ -1,0 +1,19 @@
+# Runs the gateway and its web UI on http://localhost:8000
+#
+#   cp code/backend/.env.example code/backend/.env     # then set GATEWAY_API_KEY (and any provider keys)
+#   docker compose up --build
+#
+# Everything defaults to offline mock providers, so no API key is needed to try it out.
+services:
+  gateway:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - code/backend/.env
+    volumes:
+      - traces:/app/code/backend/data
+    restart: unless-stopped
+
+volumes:
+  traces:
