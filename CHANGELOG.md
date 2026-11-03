@@ -27,6 +27,7 @@
 - 저장소를 `code/backend`와 `code/frontend`로 나눴다.
 - 웹 화면을 `/`에서 서빙한다. 환경변수는 `WEB_UI_ENABLED`이다. 이전의 `/demo`와 `DEMO_UI_ENABLED`는 별칭 없이 제거되었다.
 - 문서 문체를 "~이다/~한다"로 통일했다.
+- README를 80줄 안팎으로 줄였다. 라우팅 모드, 웹 화면, 응답 헤더 전체, 오류 형식 등 세부 내용은 모듈별 README와 `docs/architecture.md`로 옮겼다.
 
 ### 수정
 

@@ -16,6 +16,12 @@ uv run uvicorn gateway.app:create_app --factory --port 8000
 
 웹 화면(`../frontend`)을 빌드해 두면 같은 서버가 `/`에서 서빙한다. 빌드하지 않아도 API는 동작한다.
 
+## 동작
+
+- 응답 헤더 `X-Request-ID`가 trace의 키이다. 기본 저장소는 `data/traces.sqlite3`(SQLite, 커밋되지 않음)이며 단계별(`guard` → `router` → `provider`) 판정·토큰·비용·지연이 기록된다.
+- 입력 가드가 막으면 400이다. 라우팅된 모델이 실패하면 다른 경로의 실제 모델이 대신 답하고(응답 헤더 `X-LLMOps-Fallback: true`, trace에 기록), 모두 실패하면 502이다.
+- 실제 모델 연결은 `.env`의 `SMALL_PROVIDER` / `FRONTIER_PROVIDER` / `JUDGE_PROVIDER`로 켠다([라우터 문서](router/README.md)).
+
 ## 개발
 
 ```bash

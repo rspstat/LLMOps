@@ -21,7 +21,7 @@ npm run typecheck && npm test            # 타입 검사와 단위 테스트
 npm run build                            # 게이트웨이가 / 로 서빙하는 dist 생성
 ```
 
-저장소 구조는 [README](README.md)의 "디렉터리 구조", 설계 결정은 [docs/architecture.md](docs/architecture.md)를 본다.
+저장소 구조는 [README](README.md)의 "구조"와 [code/backend/README.md](code/backend/README.md)의 "구조" 표, 설계 결정은 [docs/architecture.md](docs/architecture.md)를 본다.
 
 ## 기여 흐름
 
