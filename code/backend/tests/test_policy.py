@@ -57,6 +57,13 @@ def test_registry_is_consistent():
         assert get_policy(version) is policy
 
 
+def test_v2a_is_the_default_and_v1_stays_selectable():
+    assert DEFAULT_POLICY_VERSION == "v2a"
+    assert Settings(_env_file=None).router_policy == "v2a"
+    assert Settings(_env_file=None, router_policy="v1").router_policy == "v1"
+    assert get_policy("v1") is V1  # the 2026-10-13 measurements can still be reproduced
+
+
 def test_unknown_policy_names_the_known_ones():
     with pytest.raises(ValueError, match=r"'v9'.*v1"):
         get_policy("v9")

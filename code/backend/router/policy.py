@@ -2,7 +2,7 @@
 
 A policy is part of the judge's input, not of the model, so changing it changes routing. A
 published version is never edited: every change is a new `Policy` registered below, with its
-before/after recorded in docs/prompts/router-policy-v1.md. The version is written to every judge
+before/after recorded in docs/prompts/router-policy.md. The version is written to every judge
 trace event and into the evaluation cache key, so runs stay reproducible and the results of
 different versions never mix.
 """
@@ -80,7 +80,9 @@ V2B = Policy(
 )
 
 POLICIES: dict[str, Policy] = {policy.version: policy for policy in (V1, V2A, V2B)}
-DEFAULT_POLICY_VERSION = V1.version
+# v2a became the default on 2026-11-03 (a maintainer decision, see docs/prompts/router-policy.md);
+# v1 stays selectable with ROUTER_POLICY=v1 to reproduce the 2026-10-13 measurements.
+DEFAULT_POLICY_VERSION = V2A.version
 
 
 def get_policy(version: str) -> Policy:

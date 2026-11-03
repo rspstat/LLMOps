@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from gateway.app import create_app
 from gateway.settings import Settings
 from providers.mock_decision import MockDecisionProvider
+from router.policy import DEFAULT_POLICY_VERSION
 
 URL = "/v1/chat/completions"
 NEEDLE = "unique-needle-xyz"
@@ -95,7 +96,7 @@ def test_hybrid_easy_request_records_judge_then_router_then_provider(
     assert judged.model == "mock-judge"
     assert judged.prompt_tokens > 0 and judged.completion_tokens == 1
     assert judged.cost_usd == pytest.approx(judged.prompt_tokens)  # $1 per token at this price
-    assert judged.detail["policy_version"] == "v1"
+    assert judged.detail["policy_version"] == DEFAULT_POLICY_VERSION
     assert judged.detail["probabilities"]["easy"] > 0.85
     assert judged.confidence == max(judged.detail["probabilities"].values())
 

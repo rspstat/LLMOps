@@ -8,6 +8,7 @@ from evals.cache import EvalCache
 from evals.collect import CollectStats
 from evals.schema import load_items
 from gateway.settings import Settings
+from router.policy import DEFAULT_POLICY_VERSION
 
 MOCK = Settings(_env_file=None)
 LIVE_SLM = Settings(_env_file=None, small_provider="slm", slm_model="tiny")
@@ -67,7 +68,7 @@ def test_mock_collect_writes_cache_and_metadata_then_reuses_it(tmp_path, capsys)
     assert len(cache.load()) == 10
     meta = cache.read_meta()
     assert (meta.small, meta.frontier, meta.judge) == ("mock:small", "mock:frontier", "mock:judge")
-    assert meta.policy_version == "v1" and meta.max_tokens == 64
+    assert meta.policy_version == DEFAULT_POLICY_VERSION and meta.max_tokens == 64
 
     assert cli(["collect", "--name", "m", "--limit", "10"], tmp_path) == 0
     assert "collected 0, reused 10, calls 0" in capsys.readouterr().out

@@ -52,7 +52,7 @@ Python 백엔드는 모두 `code/backend/` 아래에, 웹 화면(React)은 `code
 
 - [x] **0. 기반**: 레포 구조, 환경 변수, 게이트웨이 골격
 - [x] **1. 한 줄 관통**: 입력 가드 → 라우터 → LLM 호출 → trace 저장 (mock provider 기준으로 관통, 실제 모델 호출은 스모크 스크립트로 별도 확인 예정)
-- [x] **2. 라우팅 엔진 v1**: 규칙 + Jev + 모델 2종, 신뢰도 기반 승격 (Jev 어댑터를 실제 API로 확인함. 정책 v1은 80문항 전부 easy로 판정해 개선 필요)
+- [x] **2. 라우팅 엔진 v1**: 규칙 + Jev + 모델 2종, 신뢰도 기반 승격 (Jev 어댑터를 실제 API로 확인함. 정책 v1은 80문항 전부 easy로 판정해 v2a로 개선하고 기본으로 채택함)
 - [x] **3. 평가 v1**: 데이터셋, judge, 비용·지연·정확도 리포트 (Qwen + Jev로 80문항 첫 실측 완료: [결과](docs/evals/2026-10-13_qwen-first-run.md). n=80, 난이도 라벨은 검토 전이라 관찰로 읽을 것)
 - [ ] **4. 가드 고도화**: 인젝션·PII 탐지, 공격 프롬프트 자동 생성, 방어율 측정
 - [ ] **5. 파인튜닝**: 라우팅/가드 분류기, 소형 judge (1B 이하 모델 위주)
@@ -117,7 +117,9 @@ npm test          # 단위 테스트
 | `hybrid` | 규칙에 걸리면 확정, 아니면 판정기(Jev)가 easy/hard와 확률을 판정. `p(easy) ≥ ROUTER_PROMOTE_THRESHOLD`(0.7)일 때만 소형 모델, 아니면 상용 모델로 승격 |
 | `judge_only` | 항상 판정기에 질의 (규칙과 비교 실험용) |
 
-`JUDGE_PROVIDER`의 기본값은 오프라인 mock(요청 길이만 보는 가짜)이라 키 없이 동작을 볼 수 있지만, 라우팅 품질의 근거는 아니다. 실제 Jev는 `JUDGE_PROVIDER=jev`와 `JEV_API_KEY`가 필요하며, 어댑터는 서드파티 문서를 기준으로 작성했고 2026-10-13에 실제 호출로 확인했다. 판정 호출은 trace에 `judge` 이벤트(확률, 토큰, 비용, 지연, 정책 버전)로 남는다. 정책 문구는 [docs/prompts/router-policy-v1.md](docs/prompts/router-policy-v1.md)에 있다.
+판정기에 보내는 정책 문구는 `ROUTER_POLICY`로 고르며 기본은 `v2a`이다. v1은 Jev가 거의 모든 요청에 `easy`를 높은 확률로 답해 기본 임계값 0.7이 구분력을 잃었고, v2a는 "정답에 필요한 의존 단계 수"를 묻는다. 비교와 한계는 [정책 v2 검증](docs/evals/2026-10-19_policy-v2.md)에 있다. 2026-10-13 측정을 재현하려면 `ROUTER_POLICY=v1`(평가 도구는 `--policy v1`)을 쓴다.
+
+`JUDGE_PROVIDER`의 기본값은 오프라인 mock(요청 길이만 보는 가짜)이라 키 없이 동작을 볼 수 있지만, 라우팅 품질의 근거는 아니다. 실제 Jev는 `JUDGE_PROVIDER=jev`와 `JEV_API_KEY`가 필요하며, 어댑터는 서드파티 문서를 기준으로 작성했고 2026-10-13에 실제 호출로 확인했다. 판정 호출은 trace에 `judge` 이벤트(확률, 토큰, 비용, 지연, 정책 버전)로 남는다. 정책 문구는 [docs/prompts/router-policy.md](docs/prompts/router-policy.md)에 있다.
 
 ### 평가 (3단계)
 
