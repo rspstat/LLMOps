@@ -13,7 +13,7 @@ function answered(overrides: Partial<ChatSuccess["info"]> = {}, model = "qwen3.7
     model,
     promptTokens: 1,
     completionTokens: 1,
-    info: { route: "small", reason: "judge_easy", pEasy: 1, fallback: false, costUsd: 0.1, ...overrides },
+    info: { route: "small", reason: "judge_easy", pEasy: 1, fallback: false, costUsd: 0.1, baselineUsd: null, ...overrides },
   };
 }
 

@@ -74,6 +74,35 @@ def test_keyword_routes_to_frontier_and_cost_uses_configured_price(
     expected = usage["prompt_tokens"] + 2 * usage["completion_tokens"]
     assert events[2].cost_usd == pytest.approx(expected)
     assert float(response.headers["X-LLMOps-Cost-USD"]) == pytest.approx(expected)
+    # the frontier answered, so what it cost is also the baseline: nothing was saved
+    assert float(response.headers["X-LLMOps-Baseline-Cost-USD"]) == pytest.approx(expected)
+
+
+def test_baseline_cost_shows_what_the_small_answer_saved(settings, trace_store, auth_headers):
+    client = make_client(
+        settings,
+        trace_store,
+        small_price_in_per_mtok=1.0,
+        small_price_out_per_mtok=1.0,
+        frontier_price_in_per_mtok=1_000_000.0,
+        frontier_price_out_per_mtok=2_000_000.0,
+    )
+    response = client.post(URL, json=chat("hello"), headers=auth_headers)
+
+    usage = response.json()["usage"]
+    assert response.headers["X-LLMOps-Route"] == "small"
+    baseline = float(response.headers["X-LLMOps-Baseline-Cost-USD"])
+    assert baseline == pytest.approx(usage["prompt_tokens"] + 2 * usage["completion_tokens"])
+    actual = float(response.headers["X-LLMOps-Cost-USD"])
+    assert actual < baseline * 1e-5  # the small model cost almost nothing next to the baseline
+
+
+def test_baseline_is_omitted_when_no_frontier_price_is_set(settings, trace_store, auth_headers):
+    client = make_client(settings, trace_store)
+    response = client.post(URL, json=chat("hello"), headers=auth_headers)
+
+    assert response.status_code == 200
+    assert "X-LLMOps-Baseline-Cost-USD" not in response.headers
 
 
 def test_injection_is_blocked_and_never_reaches_a_provider(settings, trace_store, auth_headers):

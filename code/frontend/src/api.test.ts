@@ -30,6 +30,7 @@ const OK_HEADERS = {
   "X-LLMOps-P-Easy": "1.0000",
   "X-LLMOps-Fallback": "false",
   "X-LLMOps-Cost-USD": "0.00002080",
+  "X-LLMOps-Baseline-Cost-USD": "0.00006200",
 };
 
 describe("parseRouteInfo", () => {
@@ -42,6 +43,7 @@ describe("parseRouteInfo", () => {
       pEasy: 1,
       fallback: false,
       costUsd: 0.0000208,
+      baselineUsd: 0.000062,
     });
   });
 
@@ -50,7 +52,14 @@ describe("parseRouteInfo", () => {
       new Headers({ "X-LLMOps-Route": "huge", "X-LLMOps-P-Easy": "abc", "X-LLMOps-Cost-USD": "" }),
     );
 
-    expect(info).toEqual({ route: null, reason: null, pEasy: null, fallback: false, costUsd: null });
+    expect(info).toEqual({
+      route: null,
+      reason: null,
+      pEasy: null,
+      fallback: false,
+      costUsd: null,
+      baselineUsd: null,
+    });
   });
 
   it("reports a fallback only for the exact value true", () => {

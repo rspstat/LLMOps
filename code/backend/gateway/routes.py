@@ -25,12 +25,16 @@ def _route_headers(outcome: Completed, recorder: TraceRecorder) -> dict[str, str
     provider answered, and the body's `model` says which. The reason keeps only the part before
     ':' (`keyword:analyze` -> `keyword`) so matched user text never reaches a header.
     `X-LLMOps-Cost-USD` is the whole request: judge call plus every provider attempt.
+    `X-LLMOps-Baseline-Cost-USD` is what the answer would have cost on the frontier model alone
+    (omitted when no frontier price is set), so clients can show how much routing saved.
     """
     headers = {
         "X-LLMOps-Route": outcome.route.route.value,
         "X-LLMOps-Fallback": "true" if outcome.fallback_used else "false",
         "X-LLMOps-Cost-USD": f"{sum(e.cost_usd or 0.0 for e in recorder.events):.8f}",
     }
+    if outcome.baseline_cost_usd is not None:
+        headers["X-LLMOps-Baseline-Cost-USD"] = f"{outcome.baseline_cost_usd:.8f}"
     reason = _header_token(outcome.route.reason.split(":", 1)[0])
     if reason:
         headers["X-LLMOps-Route-Reason"] = reason

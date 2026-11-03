@@ -40,12 +40,19 @@ class Blocked:
 
 @dataclass(frozen=True, slots=True)
 class Completed:
-    """`route` is what the router chose; `fallback_used` says a different provider answered."""
+    """`route` is what the router chose; `fallback_used` says a different provider answered.
+
+    `baseline_cost_usd` is what the same tokens would have cost at the frontier price: the
+    "everything goes to the strongest model" reference that savings are measured against. It is
+    None when no frontier price is configured. It is an estimate: the frontier model would count
+    its own tokens, which can differ a little from the model that actually answered.
+    """
 
     response: ProviderResponse
     route: RouteDecision
     provider: str
     fallback_used: bool
+    baseline_cost_usd: float | None = None
 
 
 def _elapsed_ms(start: float) -> int:
@@ -135,8 +142,20 @@ class Pipeline:
                 recorder, candidate.provider, request, route, price, fallback=index > 0
             )
             if response is not None:
-                return Completed(response, route, candidate.provider.name, fallback_used=index > 0)
+                return Completed(
+                    response,
+                    route,
+                    candidate.provider.name,
+                    fallback_used=index > 0,
+                    baseline_cost_usd=self._baseline_cost(response),
+                )
         raise ProviderUnavailableError("the routed provider and every fallback failed")
+
+    def _baseline_cost(self, response: ProviderResponse) -> float | None:
+        price = self._prices.get("frontier", Price())
+        if price == Price():
+            return None  # no frontier price configured, so there is nothing to compare against
+        return price.cost(response.prompt_tokens, response.completion_tokens)
 
     def _record_judge(self, recorder: TraceRecorder, judge: JudgeRecord) -> None:
         detail: dict = {"provider": judge.provider, "policy_version": judge.policy_version}

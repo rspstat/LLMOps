@@ -7,6 +7,7 @@ export interface RouteInfo {
   pEasy: number | null; // only when a judge was consulted
   fallback: boolean; // true when a different provider answered than the router chose
   costUsd: number | null; // judge call + every provider attempt
+  baselineUsd: number | null; // the same answer priced on the frontier model alone
 }
 
 interface OutcomeBase {

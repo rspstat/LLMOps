@@ -2,6 +2,16 @@ export function formatCost(usd: number | null): string {
   return usd === null ? "-" : `$${usd.toFixed(6)}`;
 }
 
+/** A cost difference with its sign, e.g. "$0.000123" or "-$0.000020". */
+export function formatSaved(usd: number): string {
+  const sign = usd < 0 ? "-" : "";
+  return `${sign}$${Math.abs(usd).toFixed(6)}`;
+}
+
+export function formatPercent(rate: number): string {
+  return `${(rate * 100).toFixed(1)}%`;
+}
+
 export function formatPEasy(p: number | null): string {
   return p === null ? "-" : p.toFixed(4);
 }

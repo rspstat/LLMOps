@@ -10,6 +10,14 @@ export interface Summary {
   fallbacks: number;
   totalCostUsd: number;
   totalTokens: number;
+  /** What the answered requests would have cost on the frontier model alone (only requests that
+   *  report both a baseline and an actual cost are compared). */
+  baselineUsd: number;
+  /** baselineUsd minus the actual cost of the same requests; negative when the judge call cost
+   *  more than routing saved. */
+  savedUsd: number;
+  /** savedUsd / baselineUsd, or null when no request could be compared. */
+  savedRate: number | null;
 }
 
 /** Totals for the session table. `small`/`frontier` count the router's choice, not who answered. */
@@ -24,6 +32,9 @@ export function summarize(entries: readonly HistoryEntry[]): Summary {
     fallbacks: 0,
     totalCostUsd: 0,
     totalTokens: 0,
+    baselineUsd: 0,
+    savedUsd: 0,
+    savedRate: null,
   };
   for (const { outcome } of entries) {
     if (!outcome.ok) {
@@ -37,6 +48,12 @@ export function summarize(entries: readonly HistoryEntry[]): Summary {
     if (outcome.info.fallback) summary.fallbacks += 1;
     summary.totalCostUsd += outcome.info.costUsd ?? 0;
     summary.totalTokens += outcome.promptTokens + outcome.completionTokens;
+    const { baselineUsd, costUsd } = outcome.info;
+    if (baselineUsd !== null && costUsd !== null) {
+      summary.baselineUsd += baselineUsd;
+      summary.savedUsd += baselineUsd - costUsd;
+    }
   }
+  summary.savedRate = summary.baselineUsd > 0 ? summary.savedUsd / summary.baselineUsd : null;
   return summary;
 }

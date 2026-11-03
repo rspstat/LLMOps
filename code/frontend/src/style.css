@@ -824,6 +824,114 @@ dd {
 .w-55 { width: 55%; }
 .w-40 { width: 40%; }
 
+/* ───────────── savings ───────────── */
+.savings {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow: var(--shadow);
+  animation: rise 0.7s var(--ease) 0.3s both;
+}
+
+@media (min-width: 720px) {
+  .savings {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+}
+
+.savings h2 {
+  margin-bottom: 6px;
+}
+
+.savings-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 6px;
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.savings[data-tone="positive"] .savings-value {
+  color: var(--small);
+}
+
+.savings[data-tone="negative"] .savings-value {
+  color: var(--warn);
+}
+
+.savings-rate {
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: var(--small-bg);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.savings[data-tone="negative"] .savings-rate {
+  background: var(--warn-bg);
+}
+
+.savings-note {
+  font-size: 0.84rem;
+}
+
+.savings-bars {
+  display: grid;
+  gap: 12px;
+}
+
+.savings-bar {
+  display: grid;
+  grid-template-columns: 6.2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.savings-bar-label {
+  color: var(--muted);
+}
+
+.savings-bar-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.savings-track {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--skeleton-a);
+}
+
+.savings-fill {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+  transition: width 1.1s var(--ease);
+}
+
+.savings-fill.baseline {
+  background: linear-gradient(90deg, var(--frontier), var(--accent-2));
+  opacity: 0.55;
+}
+
+.savings-fill.actual {
+  background: linear-gradient(90deg, var(--small), var(--accent));
+}
+
 /* ───────────── summary tiles ───────────── */
 .summary {
   display: grid;

@@ -6,6 +6,7 @@ import KeyField from "./components/KeyField";
 import Pipeline from "./components/Pipeline";
 import PromptPanel from "./components/PromptPanel";
 import ResultCard from "./components/ResultCard";
+import SavingsCard from "./components/SavingsCard";
 import SummaryBar from "./components/SummaryBar";
 import ThemeToggle from "./components/ThemeToggle";
 import { useTheme } from "./hooks/useTheme";
@@ -82,7 +83,8 @@ export default function App() {
           </div>
         </div>
 
-        <SummaryBar summary={summary} />
+        <SavingsCard summary={summary} />
+      <SummaryBar summary={summary} />
         <HistoryTable entries={history} selectedId={selectedId} onSelect={setSelectedId} />
       </main>
     </>

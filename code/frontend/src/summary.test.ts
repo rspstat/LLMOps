@@ -6,7 +6,12 @@ const BASE = { status: 200, requestId: "r", latencyMs: 10 };
 
 function answered(
   route: Route,
-  overrides: { fallback?: boolean; costUsd?: number | null; tokens?: [number, number] } = {},
+  overrides: {
+    fallback?: boolean;
+    costUsd?: number | null;
+    baselineUsd?: number | null;
+    tokens?: [number, number];
+  } = {},
 ): ChatOutcome {
   const [promptTokens, completionTokens] = overrides.tokens ?? [10, 1];
   return {
@@ -22,6 +27,7 @@ function answered(
       pEasy: null,
       fallback: overrides.fallback ?? false,
       costUsd: overrides.costUsd === undefined ? 0.5 : overrides.costUsd,
+      baselineUsd: overrides.baselineUsd === undefined ? null : overrides.baselineUsd,
     },
   };
 }
@@ -46,6 +52,9 @@ describe("summarize", () => {
       fallbacks: 0,
       totalCostUsd: 0,
       totalTokens: 0,
+      baselineUsd: 0,
+      savedUsd: 0,
+      savedRate: null,
     });
   });
 
@@ -84,5 +93,44 @@ describe("summarize", () => {
     expect(summary.totalCostUsd).toBeCloseTo(1.25);
     expect(summary.totalTokens).toBe(22 + 33 + 11);
     expect(summary.fallbacks).toBe(1);
+  });
+
+  it("adds up what routing saved against the frontier-only baseline", () => {
+    const summary = summarize(
+      entries(
+        answered("small", { costUsd: 0.1, baselineUsd: 1 }), // saved 0.9
+        answered("frontier", { costUsd: 1.1, baselineUsd: 1 }), // the judge made it cost 0.1 more
+        answered("small", { costUsd: 0.2, baselineUsd: 2 }), // saved 1.8
+      ),
+    );
+
+    expect(summary.baselineUsd).toBeCloseTo(4);
+    expect(summary.savedUsd).toBeCloseTo(0.9 - 0.1 + 1.8);
+    expect(summary.savedRate).toBeCloseTo(2.6 / 4);
+  });
+
+  it("compares only requests that report both numbers and never divides by zero", () => {
+    const partly = summarize(
+      entries(
+        answered("small", { costUsd: 0.1, baselineUsd: 1 }),
+        answered("small", { costUsd: 0.1, baselineUsd: null }), // no frontier price configured
+        answered("small", { costUsd: null, baselineUsd: 1 }), // no cost reported
+        failed(400, "input_blocked"),
+      ),
+    );
+
+    expect(partly.baselineUsd).toBe(1);
+    expect(partly.savedUsd).toBeCloseTo(0.9);
+
+    const none = summarize(entries(answered("small", { costUsd: 0.1, baselineUsd: null })));
+    expect(none.savedRate).toBeNull();
+    expect(none.savedUsd).toBe(0);
+  });
+
+  it("reports a negative saving when the judge cost more than it saved", () => {
+    const summary = summarize(entries(answered("frontier", { costUsd: 1.2, baselineUsd: 1 })));
+
+    expect(summary.savedUsd).toBeCloseTo(-0.2);
+    expect(summary.savedRate).toBeCloseTo(-0.2);
   });
 });

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useTypewriter } from "../hooks/useTypewriter";
-import { describeReason, formatCost, formatLatency, ROUTE_LABEL } from "../format";
+import { describeReason, formatCost, formatLatency, formatSaved, ROUTE_LABEL } from "../format";
 import type { ChatFailure, ChatSuccess } from "../types";
 import AnimatedNumber from "./AnimatedNumber";
 import Gauge from "./Gauge";
@@ -71,6 +71,12 @@ function Success({ outcome }: { outcome: ChatSuccess }) {
         <Row name="비용">
           {info.costUsd === null ? "-" : <AnimatedNumber value={info.costUsd} format={formatCost} />}
         </Row>
+        {info.baselineUsd !== null && info.costUsd !== null && (
+          <Row name="아낀 금액">
+            <AnimatedNumber value={info.baselineUsd - info.costUsd} format={formatSaved} />{" "}
+            <span className="muted">(상용만 썼다면 {formatCost(info.baselineUsd)})</span>
+          </Row>
+        )}
         <Row name="지연">
           <AnimatedNumber value={outcome.latencyMs} format={(v) => formatLatency(Math.round(v))} />
         </Row>

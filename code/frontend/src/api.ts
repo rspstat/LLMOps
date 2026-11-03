@@ -23,6 +23,7 @@ export function parseRouteInfo(headers: Headers): RouteInfo {
     pEasy: parseNumber(headers.get("X-LLMOps-P-Easy")),
     fallback: headers.get("X-LLMOps-Fallback") === "true",
     costUsd: parseNumber(headers.get("X-LLMOps-Cost-USD")),
+    baselineUsd: parseNumber(headers.get("X-LLMOps-Baseline-Cost-USD")),
   };
 }
 
