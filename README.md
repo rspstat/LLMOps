@@ -4,8 +4,6 @@ LLM gateway with guardrails, cost-aware routing (rules · Jev · open-source SLM
 
 OpenAI SDK의 `base_url`만 바꾸면 쉬운 요청은 값싼 소형 모델로, 어려운 요청은 상용 모델로 보내고, 위험한 입력은 모델에 닿기 전에 막고, **얼마를 아꼈는지** 보여 주는 게이트웨이이다. 라우팅 설정을 바꿀 때마다 비용·지연·정확도를 측정하는 평가 도구가 함께 들어 있다. 이 서비스가 무엇을 제공하는지(기능 요구사항, 현재 상태, 범위 밖)는 [docs/product.md](docs/product.md)에 있다.
 
-<br>
-
 ## 특징
 
 - **OpenAI 호환 API**: `POST /v1/chat/completions`. 기존 코드에서 주소와 키만 바꾸면 된다(스트리밍은 아직 없다).
@@ -14,9 +12,7 @@ OpenAI SDK의 `base_url`만 바꾸면 쉬운 요청은 값싼 소형 모델로, 
 - **입력 가드**: 빈 입력, 길이 초과, 영어·한국어 프롬프트 인젝션을 모델 호출 전에 막는다.
 - **투명성과 측정**: 모든 단계를 요청 ID와 함께 기록하고 결정을 응답 헤더로 돌려준다. 웹 화면(`/`)에서 경로·비용·아낀 금액을 볼 수 있고, 평가 도구가 설정별 정확도·비용을 비교한다.
 
-<br>
-
-## 빠른 시작
+## 시작
 
 모든 provider의 기본값은 오프라인 mock이라 API 키 없이 실행해 볼 수 있다.
 
@@ -40,8 +36,6 @@ uv run uvicorn gateway.app:create_app --factory --port 8000
 ```
 
 `http://localhost:8000/`에서 웹 화면이, `/v1/chat/completions`에서 API가 열린다.
-
-<br>
 
 ## 사용법
 
@@ -73,8 +67,6 @@ curl http://localhost:8000/v1/chat/completions \
 
 나머지 헤더와 오류 형식은 [gateway 문서](code/backend/gateway/README.md)에 있다.
 
-<br>
-
 ## 구조
 
 요청은 입력 가드 → 라우팅 → 모델 호출을 지나고, 모든 단계가 trace로 남아 평가 모듈이 설정별 비용·지연·정확도를 측정한다. 출력 가드는 아직 없다.
@@ -96,8 +88,6 @@ flowchart LR
 
 계산은 코드가, 선택지가 정해진 판정은 Jev가, 쉬운 질의는 소형 모델이, 어려운 추론은 상용 모델이 맡는다([역할 분리](docs/architecture.md#역할-분리)). 백엔드는 `code/backend/`, 웹 화면은 `code/frontend/`, 설계·결정·평가 결과는 `docs/`에 있다.
 
-<br>
-
 ## 로드맵
 
 - [x] **0. 기반**: 레포 구조, 환경 변수, 게이트웨이 골격
@@ -111,15 +101,11 @@ flowchart LR
 
 그 밖에 필요한 것은 스트리밍, 출력 가드, 키별 trace 조회, 사용자별 키·요청 한도, PostgreSQL이다. 소형 오픈소스 모델 직접 서빙(vLLM·Transformers)과 RAG 연동은 방향만 있고 범위와 일정은 정하지 않았다.
 
-<br>
-
 ## 문서와 기여
 
 - 문서 색인은 [docs/README.md](docs/README.md)에 있다. 설계와 결정 기록은 [architecture.md](docs/architecture.md), 실측 결과는 [docs/evals/](docs/evals/)이다.
 - 모듈별 안내: [백엔드](code/backend/README.md) · [라우터](code/backend/router/README.md) · [평가 도구](code/backend/evals/README.md) · [웹 화면](code/frontend/README.md)
 - 개발 환경과 기여 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md), 취약점 신고는 [SECURITY.md](SECURITY.md), 변경 내역은 [CHANGELOG.md](CHANGELOG.md)에 있다.
-
-<br>
 
 ## 라이선스
 
